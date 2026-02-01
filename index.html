@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>粉もんスタンド おしん - モバイルオーダー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>メニューを読み込み中...</p>
+  </div>
+
+  <header class="app-header">
+    <h1>🐙 粉もんスタンド おしん</h1>
+  </header>
+
+  <main id="app-main">
+    <!-- カテゴリナビゲーション -->
+    <nav class="category-nav">
+        <!-- JSで動的に生成されます -->
+    </nav>
+    <div id="menu-container" class="menu-grid">
+      <!-- メニューはJavaScriptで動的に生成されます -->
+    </div>
+  </main>
+
+  <footer id="cart-footer" class="cart-footer">
+    <button id="view-cart-button" class="view-cart-button" disabled>
+      🛒 カートを見る (<span id="cart-item-count">0</span>)
+    </button>
+    <div class="total-price-display">
+      合計: ¥<span id="cart-total-price">0</span>
+    </div>
+  </footer>
+
+  <!-- 商品詳細モーダル -->
+  <div id="item-detail-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="item-detail-name">商品名</h2>
+        <button id="close-item-detail-modal" class="close-button">&times;</button>
+      </div>
+      <div class="item-detail-body">
+          <img id="item-detail-img" src="" alt="商品画像" class="item-detail-img">
+          <p id="item-detail-description">商品説明</p>
+          
+          <!-- サイズ・個数選択エリア -->
+          <div class="option-section" id="section-options">
+            <h3>サイズ・個数を選ぶ <span class="badge-required">必須</span></h3>
+            <div id="item-detail-options" class="item-options">
+              <!-- JSで注入 -->
+            </div>
+          </div>
+
+          <!-- 味・フレーバー選択エリア -->
+          <div class="option-section" id="section-flavors" style="display:none;">
+            <h3>味を選ぶ <span class="badge-required">必須</span></h3>
+            <p class="flavor-note" id="flavor-note"></p>
+            <div id="item-detail-flavors" class="item-flavors">
+              <!-- JSで注入 -->
+            </div>
+          </div>
+
+          <!-- トッピング選択エリア -->
+          <div class="option-section" id="section-toppings">
+            <h3>トッピング <span class="badge-optional">任意</span></h3>
+            <div id="item-detail-toppings" class="item-toppings">
+              <!-- JSで注入 -->
+            </div>
+          </div>
+
+          <div class="quantity-selector">
+              <span>数量:</span>
+              <div class="quantity-controls">
+                  <button id="item-detail-decrease" class="quantity-btn">-</button>
+                  <span id="item-detail-quantity" class="quantity-display">1</span>
+                  <button id="item-detail-increase" class="quantity-btn">+</button>
+              </div>
+          </div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-price-preview">
+            小計: ¥<span id="item-detail-total-preview">0</span>
+        </div>
+        <button id="add-to-cart-button" class="submit-button">カートに追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- カートモーダル -->
+  <div id="cart-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>注文内容の確認</h2>
+        <button id="close-cart-modal" class="close-button">&times;</button>
+      </div>
+      <div id="cart-items-container" class="cart-items-container">
+      </div>
+      
+      <!-- 受取設定 -->
+      <div class="order-options-container">
+        <h3>お受け取り日時</h3>
+        <div class="form-group">
+            <label for="pickup-time">来店予定時間:</label>
+            <select id="pickup-time">
+              <option value="saps">今すぐ（最短15分後）</option>
+              <option value="30min">30分後</option>
+              <option value="60min">1時間後</option>
+              <option value="other">その他（来店時に調整）</option>
+            </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="cart-summary-total">
+          <strong>合計金額:</strong> ¥<span id="cart-modal-total-price">0</span>
+        </div>
+        <button id="submit-order-button" class="submit-button">注文を確定する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- カスタムアラートモーダル -->
+  <div id="custom-alert-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="custom-alert-title">タイトル</h2>
+      </div>
+      <div class="custom-alert-body">
+          <p id="custom-alert-message">メッセージ</p>
+      </div>
+      <div class="modal-footer">
+          <button id="custom-alert-ok-button" class="submit-button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
