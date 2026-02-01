@@ -45,7 +45,7 @@ body {
 #app-main { padding: 1rem; }
 .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 
-/* モバイル最適化: 画面幅が広いときは列を増やす */
+/* モバイル最適化 */
 @media (min-width: 600px) {
     .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 }
@@ -53,9 +53,9 @@ body {
 /* カテゴリナビ */
 .category-nav {
     display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 1rem;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
 }
-.category-nav::-webkit-scrollbar { display: none; /* Chrome/Safari */ }
+.category-nav::-webkit-scrollbar { display: none; }
 
 .category-nav a {
     white-space: nowrap; padding: 6px 14px; background: white; border-radius: 20px;
@@ -64,7 +64,7 @@ body {
 }
 
 .category-title { 
-    grid-column: 1 / -1; /* 全幅 */
+    grid-column: 1 / -1; 
     margin-top: 1rem; margin-bottom: 0.5rem; 
     color: #555; border-left: 4px solid var(--primary-color); padding-left: 8px;
 }
@@ -101,7 +101,7 @@ body {
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background-color: rgba(0, 0, 0, 0.5); display: none;
-  justify-content: center; align-items: flex-end; /* 下からスライド用 */
+  justify-content: center; align-items: flex-end; 
   z-index: 200;
 }
 .modal-overlay.visible { display: flex; animation: fadeIn 0.2s; }
@@ -116,14 +116,21 @@ body {
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1rem; border-bottom: 1px solid #f0f0f0;
+  padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+  border-bottom: 1px solid #f0f0f0;
 }
 .modal-header h2 { font-size: 1.1rem; }
 .close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #999; cursor: pointer; }
-.modal-footer { padding: 1rem; border-top: 1px solid #f0f0f0; background-color: #fff; }
+.modal-footer { 
+  padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+  border-top: 1px solid #f0f0f0; background-color: #fff; 
+}
 
 /* 詳細モーダル内 */
-.item-detail-body { padding: 1rem; overflow-y: auto; flex-grow: 1; }
+.item-detail-body { 
+    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+    overflow-y: auto; flex-grow: 1; 
+}
 .item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem; }
 #item-detail-description { margin-bottom: 1.5rem; color: #666; font-size: 0.9rem; line-height: 1.6; }
 
@@ -167,6 +174,11 @@ body {
 .modal-price-preview { text-align: right; margin-bottom: 0.5rem; font-weight: bold; font-size: 1.1rem; }
 
 /* カート */
+.cart-items-container {
+    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+    overflow-y: auto; flex-grow: 1;
+}
+
 .cart-item {
     padding: 1rem 0; border-bottom: 1px dashed #eee; display: flex; justify-content: space-between;
 }
@@ -178,10 +190,23 @@ body {
 .cart-item-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
 .remove-item-btn { margin-top: 8px; color: #999; font-size: 1.5rem; padding: 0 8px; }
 
+/* カートオプション設定エリア */
+.order-options-container {
+    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+    background-color: #fcfcfc;
+    border-top: 1px solid #f0f0f0;
+}
+.order-options-container h3 {
+    font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px;
+}
+
 /* フォーム要素 */
 .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
-.form-group select {
-    width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; background: white;
+.form-group select, 
+.form-group textarea { /* ★変更: textareaにも適用 */
+    width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #ccc; 
+    font-size: 1rem; background: white; font-family: inherit;
+    resize: vertical; /* 縦方向のみリサイズ可 */
 }
 
 .submit-button {
