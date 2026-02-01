@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 // --- ▼▼▼ 設定項目 ▼▼▼ ---
 const LIFF_ID = "2009023539-6ANIeNDa"; 
-// ★更新: 新しいGASのURL
+// GASのURL
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 // --- ▲▲▲ 設定項目 ▲▲▲ ---
 
@@ -11,7 +11,7 @@ let cart = [];
 let userProfile = null;
 const dom = {}; 
 
-// フォールバック用データ（サーバーエラー時やオフライン時に使用）
+// フォールバック用データ
 const FALLBACK_MENU_DATA = [
     {
         id: 'error_fallback', category: 'お知らせ', name: 'メニュー読込エラー',
@@ -28,7 +28,6 @@ async function initializeApp() {
     return;
   }
   try {
-    // 1. LIFF初期化
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) {
       liff.login();
@@ -36,10 +35,7 @@ async function initializeApp() {
     }
     userProfile = await liff.getProfile();
     setupEventListeners();
-    
-    // 2. メニューデータ取得（GASからfetch）
     await fetchInitialData();
-    
   } catch (err) {
     showError(`初期化エラー: ${err.message}`);
   } finally {
@@ -47,7 +43,6 @@ async function initializeApp() {
   }
 }
 
-// ★追加: サーバーからメニューを取得する関数
 async function fetchInitialData() {
     try {
         const response = await fetch(BACKEND_URL);
@@ -64,10 +59,8 @@ async function fetchInitialData() {
         }
     } catch (err) {
         console.error("メニュー取得失敗:", err);
-        // エラー時はフォールバックを表示するか、アラートを出す
         showCustomAlert("通信エラー", "メニューの読み込みに失敗しました。\n電波の良い場所で再度お試しください。");
-        menuData = FALLBACK_MENU_DATA; // 必要に応じてローカルデータを使用
-        // displayMenu(); // ローカルデータがあれば表示
+        menuData = FALLBACK_MENU_DATA;
     }
 }
 
@@ -91,24 +84,25 @@ function setupEventListeners() {
     dom.itemDetailImg = document.getElementById('item-detail-img');
     dom.itemDetailDescription = document.getElementById('item-detail-description');
     
-    dom.itemDetailOptions = document.getElementById('item-detail-options'); // サイズ選択
-    dom.sectionFlavors = document.getElementById('section-flavors'); // 味選択セクション
-    dom.itemDetailFlavors = document.getElementById('item-detail-flavors'); // 味選択
-    dom.flavorNote = document.getElementById('flavor-note'); // 味選択の注釈
+    dom.itemDetailOptions = document.getElementById('item-detail-options');
+    dom.sectionFlavors = document.getElementById('section-flavors');
+    dom.itemDetailFlavors = document.getElementById('item-detail-flavors');
+    dom.flavorNote = document.getElementById('flavor-note');
     
-    dom.itemDetailToppings = document.getElementById('item-detail-toppings'); // トッピング
+    dom.itemDetailToppings = document.getElementById('item-detail-toppings');
     dom.itemDetailQuantity = document.getElementById('item-detail-quantity');
     dom.itemDetailDecrease = document.getElementById('item-detail-decrease');
     dom.itemDetailIncrease = document.getElementById('item-detail-increase');
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
-    // アラート・受取時間
+    // アラート・受取時間・備考欄
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
     dom.customAlertOkButton = document.getElementById('custom-alert-ok-button');
     dom.pickupTime = document.getElementById('pickup-time');
+    dom.orderNotes = document.getElementById('order-notes'); // ★追加
 
     // イベントリスナー
     dom.viewCartButton.addEventListener('click', openCartModal);
@@ -127,17 +121,13 @@ function displayMenu() {
       return;
   }
 
-  // カテゴリごとに見出しをつけるための処理
   const categories = [...new Set(menuData.map(item => item.category))];
-  
-  // カテゴリナビゲーションの更新（HTML側にある場合）
   updateCategoryNav(categories);
 
   categories.forEach(category => {
-      // カテゴリ見出し
       const header = document.createElement('h3');
       header.className = 'category-title';
-      header.id = `cat-${category}`; // アンカーリンク用
+      header.id = `cat-${category}`;
       header.textContent = category;
       dom.menuContainer.appendChild(header);
 
@@ -171,7 +161,6 @@ function updateCategoryNav(categories) {
             e.preventDefault();
             const target = document.getElementById(`cat-${cat}`);
             if (target) {
-                // ヘッダーの高さ分ずらすなどの調整が必要ならここで行う
                 const headerOffset = 60;
                 const elementPosition = target.getBoundingClientRect().top;
                 const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
@@ -187,7 +176,6 @@ function showItemDetailModal(group) {
     dom.itemDetailImg.src = group.imageUrl;
     dom.itemDetailDescription.textContent = group.description || '';
     
-    // --- サイズ・個数選択 ---
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
     group.options.forEach(opt => {
@@ -209,11 +197,9 @@ function showItemDetailModal(group) {
         dom.itemDetailOptions.appendChild(label);
     });
 
-    // --- 味選択（Flavors） ---
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0) {
         dom.sectionFlavors.style.display = 'block';
-        
         group.flavors.forEach(flavor => {
             const label = document.createElement('label');
             label.className = 'option-label';
@@ -223,15 +209,11 @@ function showItemDetailModal(group) {
             `;
             dom.itemDetailFlavors.appendChild(label);
         });
-        
-        // 初期選択に応じた表示更新
         handleOptionChange(group, group.options[0].sku);
-        
     } else {
         dom.sectionFlavors.style.display = 'none';
     }
 
-    // --- トッピング選択 ---
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
     
@@ -253,7 +235,6 @@ function showItemDetailModal(group) {
         });
     }
 
-    // --- 数量リセット ---
     let quantity = 1;
     dom.itemDetailQuantity.textContent = quantity;
     
@@ -271,7 +252,6 @@ function showItemDetailModal(group) {
         quantity++; dom.itemDetailQuantity.textContent = quantity; calculateDetailTotal();
     });
 
-    // カート追加ボタン
     dom.addToCartButton = setupButton(dom.addToCartButton, () => {
         const selectedOptionEl = dom.itemDetailOptions.querySelector('input[name="price-option"]:checked');
         if (!selectedOptionEl) {
@@ -279,10 +259,8 @@ function showItemDetailModal(group) {
             return;
         }
 
-        // 味の選択チェック
         let selectedFlavors = [];
         if (group.flavors && group.flavors.length > 0) {
-            // RadioかCheckboxかで取得方法が変わる
             const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input:checked');
             if (flavorInputs.length === 0) {
                 showCustomAlert('選択エラー', '味を選択してください。');
@@ -291,7 +269,6 @@ function showItemDetailModal(group) {
             flavorInputs.forEach(input => selectedFlavors.push(input.value));
         }
         
-        // トッピング収集
         const selectedToppings = [];
         const toppingEls = dom.itemDetailToppings.querySelectorAll('input[name="topping-option"]:checked');
         toppingEls.forEach(el => {
@@ -308,7 +285,7 @@ function showItemDetailModal(group) {
             sku: selectedOptionEl.value,
             optionName: selectedOptionEl.dataset.name,
             basePrice: parseInt(selectedOptionEl.dataset.price, 10),
-            flavors: selectedFlavors, // 味リスト
+            flavors: selectedFlavors,
             toppings: selectedToppings,
             quantity: quantity
         };
@@ -321,13 +298,10 @@ function showItemDetailModal(group) {
     dom.itemDetailModal.classList.add('visible');
 }
 
-// オプション（個数）変更時の味選択UI制御
 function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
 
     const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
-    
-    // 「16個入り(t16)」または「v16」の場合、味を2つ選べるようにする（簡易ロジック）
     const isLargePortion = sku.includes('16'); 
 
     if (isLargePortion) {
@@ -344,7 +318,6 @@ function handleOptionChange(group, sku) {
             input.name = 'flavor-option-radio';
             input.onchange = null;
         });
-        // チェックボックスからラジオに戻ったとき、複数選択されていたらリセット
         const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
         if (checked.length > 1) {
             checked.forEach(c => c.checked = false);
@@ -379,7 +352,6 @@ function closeItemDetailModal() {
 }
 
 function addToCart(newItem) {
-  // 同一商品の判定（SKU、味、トッピングが全て一致するか）
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
   const newItemFlavors = newItem.flavors ? newItem.flavors.sort().join(',') : '';
 
@@ -436,13 +408,11 @@ function renderCartItems() {
     const itemEl = document.createElement('div');
     itemEl.className = 'cart-item';
     
-    // 味の表示
     let metaText = item.optionName;
     if (item.flavors && item.flavors.length > 0) {
         metaText += ` / ${item.flavors.join('・')}`;
     }
 
-    // トッピング表示
     const toppingStr = item.toppings.length > 0 
         ? `<div class="cart-item-toppings">+ ${item.toppings.map(t => t.name).join(', ')}</div>` 
         : '';
@@ -485,6 +455,7 @@ async function confirmAndSubmitOrder() {
   
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   const pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
+  const notes = dom.orderNotes ? dom.orderNotes.value.trim() : ''; // ★追加: 備考
 
   const orderData = {
     userId: userProfile ? userProfile.userId : 'GUEST', 
@@ -492,18 +463,18 @@ async function confirmAndSubmitOrder() {
     cart: cart.map(item => ({ 
         name: item.name,
         option: item.optionName,
-        flavors: item.flavors ? item.flavors.join(',') : '', // GAS用に文字列化
+        flavors: item.flavors ? item.flavors.join(',') : '',
         toppings: item.toppings.map(t => t.name).join(', '),
         quantity: item.quantity,
         price: item.unitPrice
     })),
     totalPrice: totalPrice,
     pickupTime: pickupTime,
+    notes: notes, // ★追加
     type: "OSHIN_ORDER"
   };
 
   try {
-    // GASへのPOST
     await fetch(BACKEND_URL, {
       method: 'POST', mode: 'no-cors', 
       headers: { 'Content-Type': 'application/json' },
@@ -548,21 +519,30 @@ function createReceiptFlexMessage(orderData) {
         };
     });
 
+    // 備考があれば表示
+    const contents = [
+        { "type": "text", "text": `受取: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "md", "align": "center" },
+        { "type": "separator", "margin": "md" },
+        ...itemDetails,
+        { "type": "separator", "margin": "lg" },
+        { "type": "box", "layout": "horizontal", "contents": [
+            { "type": "text", "text": "合計金額", "weight": "bold", "size": "lg" },
+            { "type": "text", "text": `¥${orderData.totalPrice}`, "weight": "bold", "align": "end", "size": "lg", "color": "#E64A19" }
+        ], "margin": "md"}
+    ];
+
+    if (orderData.notes) {
+        contents.splice(2, 0, { // リストの適当な位置に挿入
+             "type": "text", "text": `備考: ${orderData.notes}`, "size": "sm", "color": "#ff5722", "wrap": true, "margin": "md" 
+        });
+    }
+
     return { "type": "flex", "altText": "ご注文内容の確認", "contents": { "type": "bubble",
             "header": { "type": "box", "layout": "vertical", "contents": [
                 { "type": "text", "text": "粉もんスタンド おしん", "weight": "bold", "color": "#E64A19", "size": "sm" },
                 { "type": "text", "text": "ご注文ありがとうございます", "weight": "bold", "size": "lg", "margin": "md" }
             ]},
-            "body": { "type": "box", "layout": "vertical", "contents": [
-                { "type": "text", "text": `受取: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "md", "align": "center" },
-                { "type": "separator", "margin": "md" },
-                ...itemDetails,
-                { "type": "separator", "margin": "lg" },
-                { "type": "box", "layout": "horizontal", "contents": [
-                    { "type": "text", "text": "合計金額", "weight": "bold", "size": "lg" },
-                    { "type": "text", "text": `¥${orderData.totalPrice}`, "weight": "bold", "align": "end", "size": "lg", "color": "#E64A19" }
-                ], "margin": "md"}
-            ]},
+            "body": { "type": "box", "layout": "vertical", "contents": contents },
             "styles": { "header": { "backgroundColor": "#FFEBEE" }}
     }};
 }
