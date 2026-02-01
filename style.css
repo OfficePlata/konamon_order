@@ -1,19 +1,32 @@
-/* style.css - 粉もんスタンドおしん テーマ */
+/* style.css - 粉もんスタンドおしん テーマ (Instagram Ver.) */
+
+/* Google Fonts: 日本語の丸ゴシック体に近いフォントを読み込む（可能な場合） */
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
 :root {
-  --primary-color: #E64A19; /* Deep Orange: たこ焼き・ソース */
-  --accent-color: #FF5722;
-  --background-color: #fdf5f2; 
-  --text-color: #333;
+  /* Instagramのロゴや投稿テキストから抽出した「オシンブルー」 */
+  --brand-blue: #1e50a2; /* 落ち着いたネイビーブルー */
+  
+  /* 食欲をそそる「たこ焼きオレンジ」 */
+  --food-orange: #E64A19; 
+  
+  /* 背景色: カレンダーやメニュー表の温かみのあるクリーム色 */
+  --background-color: #faf9f6; 
+  
+  --text-color: #333333;
   --card-bg-color: #ffffff;
   --footer-bg-color: #ffffff;
   --border-color: #e0e0e0;
+  
+  /* アクションカラー: ボタン等はオレンジにしてCV率を高める */
+  --primary-action: var(--food-orange);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  /* 丸みのあるフォント指定 */
+  font-family: "M PLUS Rounded 1c", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
   padding-bottom: 90px;
@@ -22,24 +35,29 @@ body {
 /* ローディング */
 .loading-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(250, 249, 246, 0.95); /* 背景色に合わせる */
   display: flex; flex-direction: column; justify-content: center;
   align-items: center; z-index: 1000;
 }
 .spinner {
-  border: 4px solid rgba(230, 74, 25, 0.1); width: 40px; height: 40px;
-  border-radius: 50%; border-left-color: var(--primary-color);
+  border: 4px solid rgba(30, 80, 162, 0.1); width: 40px; height: 40px;
+  border-radius: 50%; border-left-color: var(--brand-blue);
   animation: spin 0.8s ease infinite; margin-bottom: 1rem;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* ヘッダー */
 .app-header {
-  background-color: var(--primary-color); color: white; padding: 1rem;
+  background-color: var(--brand-blue); /* ブランドブルーに変更 */
+  color: white; padding: 1rem;
   text-align: center; position: sticky; top: 0; z-index: 100;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
-.app-header h1 { font-size: 1.2rem; }
+.app-header h1 { 
+    font-size: 1.2rem; 
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
 
 /* メイン */
 #app-main { padding: 1rem; }
@@ -58,57 +76,76 @@ body {
 .category-nav::-webkit-scrollbar { display: none; }
 
 .category-nav a {
-    white-space: nowrap; padding: 6px 14px; background: white; border-radius: 20px;
-    text-decoration: none; color: var(--primary-color); font-weight: bold; font-size: 0.9rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid rgba(230, 74, 25, 0.1);
+    white-space: nowrap; padding: 8px 16px; background: white; 
+    border-radius: 20px; /* 丸みを強く */
+    text-decoration: none; 
+    color: var(--brand-blue); /* 文字色を青に */
+    font-weight: bold; font-size: 0.9rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08); 
+    border: 1px solid rgba(30, 80, 162, 0.1);
+    transition: all 0.2s;
+}
+.category-nav a:active {
+    background-color: var(--brand-blue);
+    color: white;
 }
 
 .category-title { 
     grid-column: 1 / -1; 
-    margin-top: 1rem; margin-bottom: 0.5rem; 
-    color: #555; border-left: 4px solid var(--primary-color); padding-left: 8px;
+    margin-top: 1.5rem; margin-bottom: 0.8rem; 
+    color: var(--brand-blue); /* 見出しを青に */
+    border-left: 6px solid var(--food-orange); /* アクセントにオレンジ */
+    padding-left: 10px;
+    font-size: 1.1rem;
 }
 
 .menu-item-card {
-  background-color: var(--card-bg-color); border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden;
+  background-color: var(--card-bg-color); border-radius: 16px; /* カードも少し丸く */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden;
   cursor: pointer; transition: transform 0.1s;
   display: flex; flex-direction: column;
 }
 .menu-item-card:active { transform: scale(0.98); }
 .menu-item-card img { width: 100%; height: 130px; object-fit: cover; }
-.item-info { padding: 0.75rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-.item-name { font-weight: bold; margin-bottom: 0.25rem; font-size: 0.95rem; line-height: 1.4; }
-.item-price { color: var(--primary-color); font-weight: bold; font-size: 1rem; text-align: right; }
+.item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.item-name { font-weight: bold; margin-bottom: 0.4rem; font-size: 0.95rem; line-height: 1.4; color: var(--text-color); }
+.item-price { 
+    color: var(--food-orange); /* 価格はオレンジで目立たせる */
+    font-weight: bold; font-size: 1.05rem; text-align: right; 
+}
 
 /* フッター */
 .cart-footer {
   position: fixed; bottom: 0; left: 0; width: 100%;
   background-color: var(--footer-bg-color); display: flex;
   justify-content: space-between; align-items: center; padding: 1rem;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 90;
-  border-top: 1px solid #eee;
+  box-shadow: 0 -4px 15px rgba(0,0,0,0.05); z-index: 90;
+  border-top: 1px solid #f0f0f0;
 }
 .view-cart-button {
-  background-color: var(--primary-color); color: white; border: none;
-  border-radius: 50px; padding: 0.8rem 1.5rem; font-size: 1rem;
-  font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(230, 74, 25, 0.3);
+  background-color: var(--food-orange); /* アクションボタンはオレンジ */
+  color: white; border: none;
+  border-radius: 50px; padding: 0.9rem 1.8rem; font-size: 1rem;
+  font-weight: bold; cursor: pointer; 
+  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
 }
-.view-cart-button:disabled { background-color: #ccc; box-shadow: none; opacity: 0.7; }
-.total-price-display { font-size: 1.1rem; font-weight: bold; color: var(--text-color); }
+.view-cart-button:disabled { background-color: #ddd; box-shadow: none; opacity: 1; color: #999; }
+.total-price-display { font-size: 1.1rem; font-weight: bold; color: var(--brand-blue); }
 
 /* モーダル */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); display: none;
+  background-color: rgba(30, 80, 162, 0.4); /* 青みのあるオーバーレイ */
+  display: none;
   justify-content: center; align-items: flex-end; 
   z-index: 200;
+  backdrop-filter: blur(2px); /* すりガラス効果 */
 }
 .modal-overlay.visible { display: flex; animation: fadeIn 0.2s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal-content {
-  background-color: white; border-radius: 16px 16px 0 0; width: 100%;
+  background-color: white; border-radius: 20px 20px 0 0; width: 100%;
   max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -116,66 +153,73 @@ body {
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
-  border-bottom: 1px solid #f0f0f0;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f5f5f5;
 }
-.modal-header h2 { font-size: 1.1rem; }
-.close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #999; cursor: pointer; }
+.modal-header h2 { font-size: 1.1rem; color: var(--brand-blue); }
+.close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #ccc; cursor: pointer; }
 .modal-footer { 
-  padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
-  border-top: 1px solid #f0f0f0; background-color: #fff; 
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f5f5f5; background-color: #fff; 
 }
 
 /* 詳細モーダル内 */
 .item-detail-body { 
-    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+    padding: 1rem 1.5rem;
     overflow-y: auto; flex-grow: 1; 
 }
-.item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem; }
+.item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 1rem; }
 #item-detail-description { margin-bottom: 1.5rem; color: #666; font-size: 0.9rem; line-height: 1.6; }
 
 .option-section { margin-bottom: 1.5rem; }
-.option-section h3 { font-size: 1rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px; }
-.flavor-note { font-size: 0.85rem; color: #d32f2f; margin-bottom: 0.5rem; }
+.option-section h3 { 
+    font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px; 
+    color: var(--brand-blue);
+}
+.flavor-note { font-size: 0.85rem; color: var(--food-orange); margin-bottom: 0.5rem; }
 
 /* バッジ */
 .badge-required, .badge-optional {
-    font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; color: white;
+    font-size: 0.7rem; padding: 3px 8px; border-radius: 12px; color: white; font-weight: normal;
 }
-.badge-required { background-color: #ff4d4f; }
+.badge-required { background-color: var(--food-orange); }
 .badge-optional { background-color: #aaa; }
 
 .option-label {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0.8rem 1rem; border: 1px solid var(--border-color);
-  border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer;
-  background: white;
+  padding: 0.9rem 1rem; border: 1px solid var(--border-color);
+  border-radius: 12px; margin-bottom: 0.6rem; cursor: pointer;
+  background: white; transition: all 0.2s;
 }
 /* 選択時のスタイル */
 .option-label:has(input:checked) {
-  border-color: var(--primary-color);
-  background-color: #FFF3E0;
-  color: var(--primary-color); font-weight: bold;
+  border-color: var(--brand-blue);
+  background-color: #eef4fc; /* 薄い青背景 */
+  color: var(--brand-blue); font-weight: bold;
 }
 .option-label input { display: none; }
+/* 値段部分はオレンジ維持 */
+.option-label:has(input:checked) .option-price { color: var(--food-orange); }
 
 /* 数量セレクタ */
 .quantity-selector {
     display: flex; justify-content: space-between; align-items: center;
-    background: #f9f9f9; padding: 1rem; border-radius: 8px; margin-top: 1rem;
+    background: #fcfcfc; padding: 1rem; border-radius: 12px; margin-top: 1rem;
+    border: 1px solid #eee;
 }
 .quantity-btn {
-  width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ccc;
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd;
   background-color: white; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+  color: var(--brand-blue);
 }
-.quantity-display { font-size: 1.2rem; font-weight: bold; min-width: 40px; text-align: center; }
+.quantity-display { font-size: 1.3rem; font-weight: bold; min-width: 40px; text-align: center; color: var(--text-color); }
 
 /* プレビュー金額 */
-.modal-price-preview { text-align: right; margin-bottom: 0.5rem; font-weight: bold; font-size: 1.1rem; }
+.modal-price-preview { text-align: right; margin-bottom: 0.5rem; font-weight: bold; font-size: 1.2rem; color: var(--brand-blue); }
 
 /* カート */
 .cart-items-container {
-    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
+    padding: 1rem 1.5rem;
     overflow-y: auto; flex-grow: 1;
 }
 
@@ -183,36 +227,43 @@ body {
     padding: 1rem 0; border-bottom: 1px dashed #eee; display: flex; justify-content: space-between;
 }
 .cart-item-details { flex: 1; padding-right: 1rem; }
-.cart-item-name { font-weight: bold; font-size: 1rem; }
-.cart-item-meta { font-size: 0.9rem; color: #666; font-weight: normal; }
-.cart-item-toppings { font-size: 0.85rem; color: var(--primary-color); margin-top: 4px; }
-.cart-item-price { font-weight: bold; margin-top: 4px; }
+.cart-item-name { font-weight: bold; font-size: 1rem; color: var(--brand-blue); }
+.cart-item-meta { font-size: 0.9rem; color: #777; font-weight: normal; margin-top: 2px; }
+.cart-item-toppings { font-size: 0.85rem; color: var(--food-orange); margin-top: 4px; }
+.cart-item-price { font-weight: bold; margin-top: 4px; color: #333; }
 .cart-item-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
-.remove-item-btn { margin-top: 8px; color: #999; font-size: 1.5rem; padding: 0 8px; }
+.remove-item-btn { margin-top: 8px; color: #ccc; font-size: 1.5rem; padding: 0 8px; }
 
 /* カートオプション設定エリア */
 .order-options-container {
-    padding: 1rem 1.5rem; /* ★変更: 左右余白増 */
-    background-color: #fcfcfc;
+    padding: 1rem 1.5rem;
+    background-color: #fafafa;
     border-top: 1px solid #f0f0f0;
 }
 .order-options-container h3 {
     font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px;
+    color: var(--brand-blue);
 }
 
 /* フォーム要素 */
-.form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
+.form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; color: #555; }
 .form-group select, 
-.form-group textarea { /* ★変更: textareaにも適用 */
-    width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #ccc; 
+.form-group textarea {
+    width: 100%; padding: 0.9rem; border-radius: 10px; border: 1px solid #ddd; 
     font-size: 1rem; background: white; font-family: inherit;
-    resize: vertical; /* 縦方向のみリサイズ可 */
+    resize: vertical;
+}
+.form-group select:focus, 
+.form-group textarea:focus {
+    outline: none; border-color: var(--brand-blue);
 }
 
 .submit-button {
-  width: 100%; background-color: var(--primary-color); color: white;
+  width: 100%; background-color: var(--food-orange); color: white; /* 注文ボタンはオレンジ */
   border: none; padding: 1rem; border-radius: 50px;
   font-size: 1.1rem; font-weight: bold; cursor: pointer;
-  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.2);
+  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
+  transition: transform 0.1s;
 }
+.submit-button:active { transform: scale(0.98); }
 .submit-button:disabled { background-color: #ccc; box-shadow: none; }
