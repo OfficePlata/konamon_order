@@ -102,21 +102,22 @@
       <!-- オプション設定エリア -->
       <div class="order-options-container">
         
-        <!-- ★追加: 備考欄 -->
+        <!-- 備考欄 -->
         <div class="form-group" style="margin-bottom: 1.5rem;">
             <h3>ご要望・備考 <span class="badge-optional">任意</span></h3>
-            <textarea id="order-notes" rows="2" placeholder="例：紅生姜抜きでお願いします、マヨネーズ横添えで..."></textarea>
+            <textarea id="order-notes" rows="2" placeholder="例：紅生姜抜きでお願いします、マヨネーズ別添えで..."></textarea>
         </div>
 
+        <!-- ★変更: 受取時間のUI -->
         <h3>お受け取り日時</h3>
         <div class="form-group">
             <label for="pickup-time">来店予定時間:</label>
             <select id="pickup-time">
-              <option value="saps">最短希望</option>
-              <option value="45min">45分後</option>
-              <option value="60min">1時間後</option>
-              <option value="other">その他（トークで伝える）</option>
+              <!-- JSで生成されます -->
             </select>
+            <small style="color:#e64a19; margin-top:8px; display:block; font-size:0.85rem;">
+              ※翌日以降ご希望の方は、備考欄かトークにてお知らせください
+            </small>
         </div>
       </div>
 
