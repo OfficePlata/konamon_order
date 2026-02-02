@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 // --- ▼▼▼ 設定項目 ▼▼▼ ---
 const LIFF_ID = "2009023539-6ANIeNDa"; 
+// GASのURL
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 // --- ▲▲▲ 設定項目 ▲▲▲ ---
 
@@ -12,6 +13,7 @@ let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 }; /
 
 const dom = {}; 
 
+// フォールバック用データ
 const FALLBACK_MENU_DATA = [
     {
         id: 'error_fallback', category: 'お知らせ', name: 'メニュー読込エラー',
@@ -53,7 +55,7 @@ async function fetchInitialData() {
         
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
-            // ★追加: 店舗設定の上書き
+            // 店舗設定の上書き
             if (data.settings) {
                 storeSettings = { ...storeSettings, ...data.settings };
             }
@@ -81,6 +83,7 @@ function setupEventListeners() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     
+    // 商品詳細モーダル関連
     dom.itemDetailModal = document.getElementById('item-detail-modal');
     dom.closeItemDetailModal = document.getElementById('close-item-detail-modal');
     dom.itemDetailName = document.getElementById('item-detail-name');
@@ -99,13 +102,15 @@ function setupEventListeners() {
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
+    // アラート・受取時間・備考欄
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
     dom.customAlertOkButton = document.getElementById('custom-alert-ok-button');
     dom.pickupTime = document.getElementById('pickup-time');
-    dom.orderNotes = document.getElementById('order-notes');
+    dom.orderNotes = document.getElementById('order-notes'); 
 
+    // イベントリスナー
     dom.viewCartButton.addEventListener('click', openCartModal);
     dom.closeCartModal.addEventListener('click', closeCartModal);
     dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
@@ -116,6 +121,7 @@ function setupEventListeners() {
 
 function displayMenu() {
   dom.menuContainer.innerHTML = '';
+  
   if (menuData.length === 0) {
       dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
       return;
@@ -388,11 +394,11 @@ function updateCartView() {
 
 function openCartModal() {
   renderCartItems();
-  updatePickupTimeOptions(); // ★追加: 時間選択肢を更新
+  updatePickupTimeOptions(); // 時間選択肢を更新
   dom.cartModal.classList.add('visible');
 }
 
-// ★追加: 受取時間の選択肢を生成
+// ★修正: 時間パース処理を堅牢化
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
@@ -407,26 +413,32 @@ function updatePickupTimeOptions() {
 
     const now = new Date();
     const config = storeSettings;
-    const interval = config.interval || 15;
-    const prep = config.prep || 30;
+    const interval = parseInt(config.interval) || 15;
+    const prep = parseInt(config.prep) || 30;
 
-    // 終了時間をDateオブジェクトに
-    const closeParts = config.close.split(':');
-    const closeDate = new Date(now);
-    closeDate.setHours(parseInt(closeParts[0]), parseInt(closeParts[1]), 0, 0);
+    // 時間設定をパースするヘルパー関数
+    // "11:00" でも "Sat Feb 03 2026 11:00:00..." でも "11:00" を抽出
+    const parseTime = (val, def) => {
+        const m = String(val).match(/(\d{1,2}):(\d{2})/);
+        return m ? { h: parseInt(m[1], 10), m: parseInt(m[2], 10) } : def;
+    };
 
-    // 開始時間をDateオブジェクトに
-    const openParts = config.open.split(':');
+    const openT = parseTime(config.open, { h: 11, m: 0 });
+    const closeT = parseTime(config.close, { h: 21, m: 0 });
+
     const openDate = new Date(now);
-    openDate.setHours(parseInt(openParts[0]), parseInt(openParts[1]), 0, 0);
+    openDate.setHours(openT.h, openT.m, 0, 0);
+
+    const closeDate = new Date(now);
+    closeDate.setHours(closeT.h, closeT.m, 0, 0);
 
     // 最短受取可能時間 = 現在 + 準備時間
     const earliest = new Date(now.getTime() + prep * 60000);
     
-    // ループ開始時間 = max(営業開始, 最短受取) を interval分で切り上げ
+    // ループ開始時間 = max(営業開始, 最短受取)
     let startTime = (earliest > openDate) ? earliest : openDate;
     
-    // 切り上げ計算
+    // 時間枠の切り上げ (例: 11:03 -> 11:15)
     let currentSlot = new Date(startTime);
     const remainder = currentSlot.getMinutes() % interval;
     if (remainder !== 0) {
@@ -435,9 +447,7 @@ function updatePickupTimeOptions() {
     currentSlot.setSeconds(0);
     currentSlot.setMilliseconds(0);
 
-    // 閉店時間を過ぎていたら「本日の受付は終了しました」等の処理も考えられるが
-    // ここでは単純にループが回らず「最短希望」のみ残る形にする
-
+    // 閉店時間までループ
     while (currentSlot <= closeDate) {
         const hours = currentSlot.getHours().toString().padStart(2, '0');
         const minutes = currentSlot.getMinutes().toString().padStart(2, '0');
@@ -515,7 +525,7 @@ async function confirmAndSubmitOrder() {
   dom.submitOrderButton.textContent = '注文処理中...';
   
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-  // ★変更: 最短希望の場合はテキストを調整
+  
   let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
   if (dom.pickupTime.value === 'shortest') {
       pickupTime = '最短希望';
@@ -585,7 +595,6 @@ function createReceiptFlexMessage(orderData) {
         };
     });
 
-    // 備考があれば表示
     const contents = [
         { "type": "text", "text": `受取: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "md", "align": "center" },
         { "type": "separator", "margin": "md" },
