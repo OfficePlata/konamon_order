@@ -363,13 +363,14 @@ function addToCart(newItem) {
   // トッピングIDのソート結合
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
   // フレーバーのソート結合
-  const newItemFlavors = newItem.flavors ? newItem.flavors.sort().join(',') : '';
+  const newItemFlavors = Array.isArray(newItem.flavors) ? newItem.flavors.sort().join(',') : (newItem.flavors || '');
 
   // 既存アイテム検索
   const existingItemIndex = cart.findIndex(cartItem => {
       const cartItemToppingId = cartItem.toppings.map(t => t.id).sort().join(',');
-      const cartItemFlavors = cartItem.flavors ? cartItem.flavors.sort().join(',') : '';
+      const cartItemFlavors = Array.isArray(cartItem.flavors) ? cartItem.flavors.sort().join(',') : (cartItem.flavors || '');
       
+      // SKU、トッピング、フレーバーが全て一致する場合のみ同一商品とみなす
       return cartItem.sku === newItem.sku && 
              cartItemToppingId === newItemToppingId &&
              cartItemFlavors === newItemFlavors;
@@ -476,7 +477,7 @@ function renderCartItems() {
     
     // ★修正: フレーバーとトッピングを詳細に表示
     let metaText = item.optionName;
-    if (item.flavors && item.flavors.length > 0) {
+    if (item.flavors && (Array.isArray(item.flavors) ? item.flavors.length > 0 : item.flavors)) {
         // 配列の場合と文字列の場合に対応
         const flavorStr = Array.isArray(item.flavors) ? item.flavors.join('・') : item.flavors;
         if(flavorStr) metaText += ` / ${flavorStr}`;
@@ -556,7 +557,7 @@ async function confirmAndSubmitOrder() {
     });
     
     await sendThanksMessage(orderData);
-    showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！', () => liff.closeWindow());
+    showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！！', () => liff.closeWindow());
 
   } catch (err) {
     showCustomAlert('注文エラー', `通信エラーが発生しましたが、注文が送信された可能性があります。\n念のため店頭でご確認ください。\n(${err.message})`);
