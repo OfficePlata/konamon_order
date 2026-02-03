@@ -2,18 +2,17 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 
 // --- ▼▼▼ 設定項目 ▼▼▼ ---
 const LIFF_ID = "2009023539-6ANIeNDa"; 
-// GASのURL
+// GASのURL (デプロイ後に発行されたURLを確認してください)
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 // --- ▲▲▲ 設定項目 ▲▲▲ ---
 
 let menuData = [];
 let cart = [];
 let userProfile = null;
-let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 }; // デフォルト
+let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 };
 
 const dom = {}; 
 
-// フォールバック用データ
 const FALLBACK_MENU_DATA = [
     {
         id: 'error_fallback', category: 'お知らせ', name: 'メニュー読込エラー',
@@ -49,13 +48,20 @@ async function fetchInitialData() {
     try {
         const response = await fetch(BACKEND_URL);
         if (!response.ok) {
-            throw new Error(`Server Error: ${response.status}`);
+            // サーバーエラーの詳細を取得
+            const text = await response.text();
+            throw new Error(`Server Error: ${response.status} - ${text.substring(0, 100)}...`);
         }
-        const data = await response.json();
+        
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            throw new Error('データの形式が正しくありません(JSON Parse Error)');
+        }
         
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
-            // 店舗設定の上書き
             if (data.settings) {
                 storeSettings = { ...storeSettings, ...data.settings };
             }
@@ -65,7 +71,8 @@ async function fetchInitialData() {
         }
     } catch (err) {
         console.error("メニュー取得失敗:", err);
-        showCustomAlert("通信エラー", "メニューの読み込みに失敗しました。\n電波の良い場所で再度お試しください。");
+        // ★変更: エラー内容を詳細に表示して原因を特定しやすくする
+        showCustomAlert("通信エラー", `メニューの読み込みに失敗しました。\n(${err.message})\n\n電波の良い場所で再度お試しください。`);
         menuData = FALLBACK_MENU_DATA;
     }
 }
@@ -83,7 +90,6 @@ function setupEventListeners() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     
-    // 商品詳細モーダル関連
     dom.itemDetailModal = document.getElementById('item-detail-modal');
     dom.closeItemDetailModal = document.getElementById('close-item-detail-modal');
     dom.itemDetailName = document.getElementById('item-detail-name');
@@ -102,7 +108,6 @@ function setupEventListeners() {
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
-    // アラート・受取時間・備考欄
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
@@ -110,7 +115,6 @@ function setupEventListeners() {
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes'); 
 
-    // イベントリスナー
     dom.viewCartButton.addEventListener('click', openCartModal);
     dom.closeCartModal.addEventListener('click', closeCartModal);
     dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
@@ -398,14 +402,12 @@ function openCartModal() {
   dom.cartModal.classList.add('visible');
 }
 
-// ★修正: 時間パース処理を堅牢化
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
     
     select.innerHTML = '';
     
-    // 最短希望
     const shortestOpt = document.createElement('option');
     shortestOpt.value = 'shortest';
     shortestOpt.textContent = '最短希望';
@@ -416,8 +418,6 @@ function updatePickupTimeOptions() {
     const interval = parseInt(config.interval) || 15;
     const prep = parseInt(config.prep) || 30;
 
-    // 時間設定をパースするヘルパー関数
-    // "11:00" でも "Sat Feb 03 2026 11:00:00..." でも "11:00" を抽出
     const parseTime = (val, def) => {
         const m = String(val).match(/(\d{1,2}):(\d{2})/);
         return m ? { h: parseInt(m[1], 10), m: parseInt(m[2], 10) } : def;
@@ -432,13 +432,9 @@ function updatePickupTimeOptions() {
     const closeDate = new Date(now);
     closeDate.setHours(closeT.h, closeT.m, 0, 0);
 
-    // 最短受取可能時間 = 現在 + 準備時間
     const earliest = new Date(now.getTime() + prep * 60000);
-    
-    // ループ開始時間 = max(営業開始, 最短受取)
     let startTime = (earliest > openDate) ? earliest : openDate;
     
-    // 時間枠の切り上げ (例: 11:03 -> 11:15)
     let currentSlot = new Date(startTime);
     const remainder = currentSlot.getMinutes() % interval;
     if (remainder !== 0) {
@@ -447,17 +443,14 @@ function updatePickupTimeOptions() {
     currentSlot.setSeconds(0);
     currentSlot.setMilliseconds(0);
 
-    // 閉店時間までループ
     while (currentSlot <= closeDate) {
         const hours = currentSlot.getHours().toString().padStart(2, '0');
         const minutes = currentSlot.getMinutes().toString().padStart(2, '0');
         const timeStr = `${hours}:${minutes}`;
-        
         const option = document.createElement('option');
         option.value = timeStr;
         option.textContent = timeStr;
         select.appendChild(option);
-        
         currentSlot.setMinutes(currentSlot.getMinutes() + interval);
     }
 }
