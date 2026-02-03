@@ -13,6 +13,7 @@ let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 };
 
 const dom = {}; 
 
+// フォールバック用データ
 const FALLBACK_MENU_DATA = [
     {
         id: 'error_fallback', category: 'お知らせ', name: 'メニュー読込エラー',
@@ -48,9 +49,8 @@ async function fetchInitialData() {
     try {
         const response = await fetch(BACKEND_URL);
         if (!response.ok) {
-            // サーバーエラーの詳細を取得
             const text = await response.text();
-            throw new Error(`Server Error: ${response.status} - ${text.substring(0, 100)}...`);
+            throw new Error(`Server Error: ${response.status} - ${text.substring(0, 100)}`);
         }
         
         let data;
@@ -71,9 +71,9 @@ async function fetchInitialData() {
         }
     } catch (err) {
         console.error("メニュー取得失敗:", err);
-        // エラー内容を詳細に表示して原因を特定しやすくする
         showCustomAlert("通信エラー", `メニューの読み込みに失敗しました。\n(${err.message})\n\n電波の良い場所で再度お試しください。`);
         menuData = FALLBACK_MENU_DATA;
+        displayMenu();
     }
 }
 
@@ -126,12 +126,13 @@ function setupEventListeners() {
 function displayMenu() {
   dom.menuContainer.innerHTML = '';
   
-  if (!menuData || menuData.length === 0) {
+  // 安全策: menuDataがnull/undefinedの場合のガード
+  if (!menuData || !Array.isArray(menuData) || menuData.length === 0) {
       dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
       return;
   }
 
-  // カテゴリ抽出時のエラー防止（データ不備対策）
+  // カテゴリ一覧の生成（itemが有効な場合のみ）
   const validItems = menuData.filter(item => item && item.category);
   const categories = [...new Set(validItems.map(item => item.category))];
   
@@ -149,10 +150,14 @@ function displayMenu() {
         const card = document.createElement('div');
         card.className = 'menu-item-card';
         
-        // ★修正: optionsが存在しない場合のエラー回避
+        // ★修正ポイント: optionsのチェックを厳密に
         let minPrice = 0;
         if (group.options && Array.isArray(group.options) && group.options.length > 0) {
-            minPrice = Math.min(...group.options.map(opt => opt.price));
+            // 価格があるものだけ抽出して最小値を探す
+            const prices = group.options.map(opt => opt.price).filter(p => typeof p === 'number');
+            if (prices.length > 0) {
+                minPrice = Math.min(...prices);
+            }
         }
 
         const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
@@ -200,8 +205,8 @@ function showItemDetailModal(group) {
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
     
-    // optionsの存在チェック
-    if (group.options && Array.isArray(group.options)) {
+    // optionsが有効な配列かチェック
+    if (group.options && Array.isArray(group.options) && group.options.length > 0) {
         group.options.forEach(opt => {
             const label = document.createElement('label');
             label.className = 'option-label';
@@ -220,6 +225,8 @@ function showItemDetailModal(group) {
             }
             dom.itemDetailOptions.appendChild(label);
         });
+    } else {
+        dom.itemDetailOptions.innerHTML = '<p style="color:red; font-size:0.9rem;">オプション情報がありません</p>';
     }
 
     dom.itemDetailFlavors.innerHTML = '';
@@ -234,7 +241,7 @@ function showItemDetailModal(group) {
             `;
             dom.itemDetailFlavors.appendChild(label);
         });
-        // オプションがある場合のみ呼び出す
+        // オプションが存在する場合のみ呼び出す
         if(group.options && group.options.length > 0) {
             handleOptionChange(group, group.options[0].sku);
         }
@@ -246,9 +253,13 @@ function showItemDetailModal(group) {
     const toppings = group.toppings || [];
     
     if (toppings.length === 0) {
-        document.getElementById('item-detail-toppings').closest('.option-section').style.display = 'none';
+        // 親要素(option-section)を探して非表示にする
+        const section = document.getElementById('item-detail-toppings').closest('.option-section');
+        if(section) section.style.display = 'none';
     } else {
-        document.getElementById('item-detail-toppings').closest('.option-section').style.display = 'block';
+        const section = document.getElementById('item-detail-toppings').closest('.option-section');
+        if(section) section.style.display = 'block';
+        
         toppings.forEach(top => {
             const label = document.createElement('label');
             label.className = 'option-label checkbox-label';
@@ -416,7 +427,7 @@ function updateCartView() {
 
 function openCartModal() {
   renderCartItems();
-  updatePickupTimeOptions(); // 時間選択肢を更新
+  updatePickupTimeOptions();
   dom.cartModal.classList.add('visible');
 }
 
