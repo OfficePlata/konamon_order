@@ -1,6 +1,6 @@
 /* style.css - 粉もんスタンドおしん テーマ (Instagram Ver.) */
 
-/* Google Fonts: 日本語の丸ゴシック体に近いフォントを読み込む（可能な場合） */
+/* Google Fonts: 日本語の丸ゴシック体に近いフォント */
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
 :root {
@@ -10,7 +10,7 @@
   /* 食欲をそそる「たこ焼きオレンジ」 */
   --food-orange: #E64A19; 
   
-  /* 背景色: カレンダーやメニュー表の温かみのあるクリーム色 */
+  /* 背景色 */
   --background-color: #faf9f6; 
   
   --text-color: #333333;
@@ -18,7 +18,7 @@
   --footer-bg-color: #ffffff;
   --border-color: #e0e0e0;
   
-  /* アクションカラー: ボタン等はオレンジにしてCV率を高める */
+  /* アクションカラー */
   --primary-action: var(--food-orange);
 }
 
@@ -35,7 +35,7 @@ body {
 /* ローディング */
 .loading-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(250, 249, 246, 0.95); /* 背景色に合わせる */
+  background-color: rgba(250, 249, 246, 0.95);
   display: flex; flex-direction: column; justify-content: center;
   align-items: center; z-index: 1000;
 }
@@ -48,7 +48,7 @@ body {
 
 /* ヘッダー */
 .app-header {
-  background-color: var(--brand-blue); /* ブランドブルーに変更 */
+  background-color: var(--brand-blue);
   color: white; padding: 1rem;
   text-align: center; position: sticky; top: 0; z-index: 100;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -77,9 +77,9 @@ body {
 
 .category-nav a {
     white-space: nowrap; padding: 8px 16px; background: white; 
-    border-radius: 20px; /* 丸みを強く */
+    border-radius: 20px; 
     text-decoration: none; 
-    color: var(--brand-blue); /* 文字色を青に */
+    color: var(--brand-blue);
     font-weight: bold; font-size: 0.9rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.08); 
     border: 1px solid rgba(30, 80, 162, 0.1);
@@ -93,14 +93,14 @@ body {
 .category-title { 
     grid-column: 1 / -1; 
     margin-top: 1.5rem; margin-bottom: 0.8rem; 
-    color: var(--brand-blue); /* 見出しを青に */
-    border-left: 6px solid var(--food-orange); /* アクセントにオレンジ */
+    color: var(--brand-blue);
+    border-left: 6px solid var(--food-orange);
     padding-left: 10px;
     font-size: 1.1rem;
 }
 
 .menu-item-card {
-  background-color: var(--card-bg-color); border-radius: 16px; /* カードも少し丸く */
+  background-color: var(--card-bg-color); border-radius: 16px; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden;
   cursor: pointer; transition: transform 0.1s;
   display: flex; flex-direction: column;
@@ -110,7 +110,7 @@ body {
 .item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .item-name { font-weight: bold; margin-bottom: 0.4rem; font-size: 0.95rem; line-height: 1.4; color: var(--text-color); }
 .item-price { 
-    color: var(--food-orange); /* 価格はオレンジで目立たせる */
+    color: var(--food-orange);
     font-weight: bold; font-size: 1.05rem; text-align: right; 
 }
 
@@ -123,7 +123,7 @@ body {
   border-top: 1px solid #f0f0f0;
 }
 .view-cart-button {
-  background-color: var(--food-orange); /* アクションボタンはオレンジ */
+  background-color: var(--food-orange);
   color: white; border: none;
   border-radius: 50px; padding: 0.9rem 1.8rem; font-size: 1rem;
   font-weight: bold; cursor: pointer; 
@@ -135,11 +135,11 @@ body {
 /* モーダル */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(30, 80, 162, 0.4); /* 青みのあるオーバーレイ */
+  background-color: rgba(30, 80, 162, 0.4);
   display: none;
   justify-content: center; align-items: flex-end; 
   z-index: 200;
-  backdrop-filter: blur(2px); /* すりガラス効果 */
+  backdrop-filter: blur(2px);
 }
 .modal-overlay.visible { display: flex; animation: fadeIn 0.2s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -194,11 +194,10 @@ body {
 /* 選択時のスタイル */
 .option-label:has(input:checked) {
   border-color: var(--brand-blue);
-  background-color: #eef4fc; /* 薄い青背景 */
+  background-color: #eef4fc;
   color: var(--brand-blue); font-weight: bold;
 }
 .option-label input { display: none; }
-/* 値段部分はオレンジ維持 */
 .option-label:has(input:checked) .option-price { color: var(--food-orange); }
 
 /* 数量セレクタ */
@@ -259,7 +258,7 @@ body {
 }
 
 .submit-button {
-  width: 100%; background-color: var(--food-orange); color: white; /* 注文ボタンはオレンジ */
+  width: 100%; background-color: var(--food-orange); color: white;
   border: none; padding: 1rem; border-radius: 50px;
   font-size: 1.1rem; font-weight: bold; cursor: pointer;
   box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
