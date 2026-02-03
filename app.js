@@ -1,13 +1,14 @@
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 const LIFF_ID = "2009023539-6ANIeNDa"; 
-// ★デプロイ後に発行された新しいURLに書き換えてください
+// GASのURL (デプロイ後に発行された新しいURLに書き換えてください)
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 
 let menuData = [];
 let cart = [];
 let userProfile = null;
-let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 };
+// ★変更: intervalの初期値を 5 に変更
+let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 5 };
 const dom = {}; 
 
 const FALLBACK_MENU_DATA = [{
@@ -35,7 +36,6 @@ async function fetchInitialData() {
         if (!response.ok) throw new Error(`Server Error: ${response.status}`);
         const data = await response.json();
         
-        // サーバーからエラーが返ってきた場合
         if (data.error) throw new Error(data.message || 'Server Logic Error');
 
         if (data.menu && Array.isArray(data.menu)) {
@@ -58,7 +58,6 @@ function displayMenu() {
       return;
   }
 
-  // カテゴリ抽出（nullチェック含む）
   const validItems = menuData.filter(item => item && item.category);
   const categories = [...new Set(validItems.map(item => item.category))];
   
@@ -76,7 +75,6 @@ function displayMenu() {
         const card = document.createElement('div');
         card.className = 'menu-item-card';
         
-        // 価格表示ロジック（安全策）
         let priceText = '価格要確認';
         if (group.options && Array.isArray(group.options) && group.options.length > 0) {
             const validPrices = group.options
@@ -103,11 +101,7 @@ function displayMenu() {
   });
 }
 
-// ... (以下、イベントリスナー設定やカート処理などは既存コードのままでOKです。変更ありません)
-// 必ず既存の app.js の関数群（setupEventListeners, showItemDetailModal, addToCart, confirmAndSubmitOrderなど）を含めてください。
-// ここでは省略していますが、前回の回答に含まれていた関数をそのまま使います。
-
-function setupEventListeners() { /* 前回のコード参照 */
+function setupEventListeners() {
     dom.loading = document.getElementById('loading');
     dom.menuContainer = document.getElementById('menu-container');
     dom.viewCartButton = document.getElementById('view-cart-button');
@@ -148,7 +142,7 @@ function setupEventListeners() { /* 前回のコード参照 */
     dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
 }
 
-function updateCategoryNav(categories) { /* 前回コード参照 */
+function updateCategoryNav(categories) {
     const nav = document.querySelector('.category-nav');
     if (!nav) return;
     nav.innerHTML = '';
@@ -170,12 +164,13 @@ function updateCategoryNav(categories) { /* 前回コード参照 */
     });
 }
 
-function showItemDetailModal(group) { /* 前回コード参照 (ガード処理追加済みのもの) */
+function showItemDetailModal(group) {
     dom.itemDetailName.textContent = group.name;
     dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
     dom.itemDetailDescription.textContent = group.description || '';
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
+    
     if (group.options && Array.isArray(group.options) && group.options.length > 0) {
         group.options.forEach(opt => {
             const label = document.createElement('label');
@@ -252,7 +247,7 @@ function showItemDetailModal(group) { /* 前回コード参照 (ガード処理�
     dom.itemDetailModal.classList.add('visible');
 }
 
-function handleOptionChange(group, sku) { /* 前回コード参照 */
+function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
     const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
     const isLargePortion = sku.includes('16'); 
@@ -275,7 +270,7 @@ function handleOptionChange(group, sku) { /* 前回コード参照 */
     }
 }
 
-function limitFlavorSelection(e) { /* 前回コード参照 */
+function limitFlavorSelection(e) {
     const checked = dom.itemDetailFlavors.querySelectorAll('input[type="checkbox"]:checked');
     if (checked.length > 2) {
         e.target.checked = false;
@@ -283,7 +278,7 @@ function limitFlavorSelection(e) { /* 前回コード参照 */
     }
 }
 
-function calculateDetailTotal() { /* 前回コード参照 */
+function calculateDetailTotal() {
     const selectedOptionEl = dom.itemDetailOptions.querySelector('input[name="price-option"]:checked');
     const basePrice = selectedOptionEl ? parseInt(selectedOptionEl.dataset.price, 10) : 0;
     let toppingPrice = 0;
@@ -295,7 +290,7 @@ function calculateDetailTotal() { /* 前回コード参照 */
 
 function closeItemDetailModal() { dom.itemDetailModal.classList.remove('visible'); }
 
-function addToCart(newItem) { /* 前回コード参照 */
+function addToCart(newItem) {
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
   const newItemFlavors = newItem.flavors ? newItem.flavors.sort().join(',') : '';
   const existingItemIndex = cart.findIndex(cartItem => {
@@ -311,7 +306,7 @@ function addToCart(newItem) { /* 前回コード参照 */
   updateCartView();
 }
 
-function updateCartView() { /* 前回コード参照 */
+function updateCartView() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   dom.cartItemCount.textContent = totalItems;
@@ -322,21 +317,26 @@ function updateCartView() { /* 前回コード参照 */
 
 function openCartModal() { renderCartItems(); updatePickupTimeOptions(); dom.cartModal.classList.add('visible'); }
 
-function updatePickupTimeOptions() { /* 前回コード参照 */
+function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
     select.innerHTML = '';
     const shortestOpt = document.createElement('option');
     shortestOpt.value = 'shortest'; shortestOpt.textContent = '最短希望';
     select.appendChild(shortestOpt);
+
     const now = new Date();
     const config = storeSettings;
-    const interval = parseInt(config.interval) || 15;
+    
+    // ★変更: intervalのデフォルトを5に設定
+    const interval = parseInt(config.interval) || 5; 
     const prep = parseInt(config.prep) || 30;
+
     const parseTime = (val, def) => {
         const m = String(val).match(/(\d{1,2}):(\d{2})/);
         return m ? { h: parseInt(m[1], 10), m: parseInt(m[2], 10) } : def;
     };
+
     const openT = parseTime(config.open, { h: 11, m: 0 });
     const closeT = parseTime(config.close, { h: 21, m: 0 });
     const openDate = new Date(now); openDate.setHours(openT.h, openT.m, 0, 0);
@@ -344,9 +344,12 @@ function updatePickupTimeOptions() { /* 前回コード参照 */
     const earliest = new Date(now.getTime() + prep * 60000);
     let startTime = (earliest > openDate) ? earliest : openDate;
     let currentSlot = new Date(startTime);
+    
+    // 5分刻みで切り上げ
     const remainder = currentSlot.getMinutes() % interval;
     if (remainder !== 0) currentSlot.setMinutes(currentSlot.getMinutes() + (interval - remainder));
     currentSlot.setSeconds(0); currentSlot.setMilliseconds(0);
+
     while (currentSlot <= closeDate) {
         const hours = currentSlot.getHours().toString().padStart(2, '0');
         const minutes = currentSlot.getMinutes().toString().padStart(2, '0');
@@ -360,7 +363,7 @@ function updatePickupTimeOptions() { /* 前回コード参照 */
 
 function closeCartModal() { dom.cartModal.classList.remove('visible'); }
 
-function renderCartItems() { /* 前回コード参照 */
+function renderCartItems() {
   if (cart.length === 0) {
     dom.cartItemsContainer.innerHTML = '<p>カートは空です。</p>';
     dom.submitOrderButton.disabled = true;
@@ -377,7 +380,6 @@ function renderCartItems() { /* 前回コード参照 */
     itemEl.innerHTML = `
         <div class="cart-item-details">
             <p class="cart-item-name">${item.name}</p><p class="cart-item-meta">${metaText}</p>
-            ${toppingStr}
             <p class="cart-item-price">@¥${item.unitPrice} × ${item.quantity} = ¥${item.unitPrice * item.quantity}</p>
         </div>
         <div class="cart-item-actions">
@@ -398,7 +400,7 @@ function window_updateItemQuantity(index, change) { cart[index].quantity += chan
 window.updateItemQuantity = window_updateItemQuantity;
 window.removeItemFromCart = (index) => { cart.splice(index, 1); renderCartItems(); };
 
-async function confirmAndSubmitOrder() { /* 前回コード参照 */
+async function confirmAndSubmitOrder() {
   dom.submitOrderButton.disabled = true;
   dom.submitOrderButton.textContent = '注文処理中...';
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
@@ -427,7 +429,7 @@ async function confirmAndSubmitOrder() { /* 前回コード参照 */
   }
 }
 
-async function sendThanksMessage(orderData) { /* 前回コード参照 */
+async function sendThanksMessage(orderData) {
   if (!liff.isInClient()) return;
   const itemDetails = orderData.cart.map(item => {
         let details = item.option;
