@@ -421,7 +421,7 @@ async function confirmAndSubmitOrder() {
   try {
     await fetch(BACKEND_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData) });
     await sendThanksMessage(orderData);
-    showCustomAlert('注文完了', 'ご注文ありがとうございます！\nお店でお待ちしております。', () => liff.closeWindow());
+    showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！', () => liff.closeWindow());
   } catch (err) {
     showCustomAlert('注文エラー', `通信エラーが発生しましたが、注文が送信された可能性があります。\n店頭でご確認ください。\n(${err.message})`);
     dom.submitOrderButton.disabled = false;
