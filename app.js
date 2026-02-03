@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 const LIFF_ID = "2009023539-6ANIeNDa"; 
+// ★デプロイ後に発行された新しいURLに書き換えてください
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 
 let menuData = [];
@@ -11,7 +12,7 @@ const dom = {};
 
 const FALLBACK_MENU_DATA = [{
     id: 'error', category: 'エラー', name: 'メニュー読込失敗',
-    description: '通信環境の良い場所で再読み込みしてください。',
+    description: '通信エラーが発生しました。',
     imageUrl: 'https://placehold.co/300x200/ccc/333?text=Error',
     options: [{ sku: 'err', name: 'ー', price: 0 }], toppings: []
 }];
@@ -33,6 +34,10 @@ async function fetchInitialData() {
         const response = await fetch(BACKEND_URL);
         if (!response.ok) throw new Error(`Server Error: ${response.status}`);
         const data = await response.json();
+        
+        // サーバーからエラーが返ってきた場合
+        if (data.error) throw new Error(data.message || 'Server Logic Error');
+
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
             if (data.settings) storeSettings = { ...storeSettings, ...data.settings };
@@ -40,13 +45,69 @@ async function fetchInitialData() {
         } else { throw new Error('データ形式エラー'); }
     } catch (err) {
         console.error(err);
+        showCustomAlert("通信エラー", `メニューを読み込めませんでした。\n(${err.message})`);
         menuData = FALLBACK_MENU_DATA;
         displayMenu();
-        showCustomAlert("通信エラー", "メニューの読み込みに失敗しました。");
     }
 }
 
-function setupEventListeners() {
+function displayMenu() {
+  dom.menuContainer.innerHTML = '';
+  if (!menuData || !Array.isArray(menuData) || menuData.length === 0) {
+      dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
+      return;
+  }
+
+  // カテゴリ抽出（nullチェック含む）
+  const validItems = menuData.filter(item => item && item.category);
+  const categories = [...new Set(validItems.map(item => item.category))];
+  
+  updateCategoryNav(categories);
+
+  categories.forEach(category => {
+      const header = document.createElement('h3');
+      header.className = 'category-title';
+      header.id = `cat-${category}`;
+      header.textContent = category;
+      dom.menuContainer.appendChild(header);
+
+      const items = validItems.filter(m => m.category === category);
+      items.forEach(group => {
+        const card = document.createElement('div');
+        card.className = 'menu-item-card';
+        
+        // 価格表示ロジック（安全策）
+        let priceText = '価格要確認';
+        if (group.options && Array.isArray(group.options) && group.options.length > 0) {
+            const validPrices = group.options
+                .map(o => o.price)
+                .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
+            
+            if (validPrices.length > 0) {
+                const min = Math.min(...validPrices);
+                priceText = `¥${min}〜`;
+            }
+        }
+
+        const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+        card.innerHTML = `
+            <img src="${imgUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
+            <div class="item-info">
+                <p class="item-name">${group.name}</p>
+                <p class="item-price">${priceText}</p>
+            </div>
+        `;
+        card.onclick = () => showItemDetailModal(group);
+        dom.menuContainer.appendChild(card);
+      });
+  });
+}
+
+// ... (以下、イベントリスナー設定やカート処理などは既存コードのままでOKです。変更ありません)
+// 必ず既存の app.js の関数群（setupEventListeners, showItemDetailModal, addToCart, confirmAndSubmitOrderなど）を含めてください。
+// ここでは省略していますが、前回の回答に含まれていた関数をそのまま使います。
+
+function setupEventListeners() { /* 前回のコード参照 */
     dom.loading = document.getElementById('loading');
     dom.menuContainer = document.getElementById('menu-container');
     dom.viewCartButton = document.getElementById('view-cart-button');
@@ -87,56 +148,7 @@ function setupEventListeners() {
     dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
 }
 
-function displayMenu() {
-  dom.menuContainer.innerHTML = '';
-  if (!menuData || menuData.length === 0) {
-      dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
-      return;
-  }
-  const validItems = menuData.filter(item => item && item.category);
-  const categories = [...new Set(validItems.map(item => item.category))];
-  
-  updateCategoryNav(categories);
-
-  categories.forEach(category => {
-      const header = document.createElement('h3');
-      header.className = 'category-title';
-      header.id = `cat-${category}`;
-      header.textContent = category;
-      dom.menuContainer.appendChild(header);
-
-      const items = validItems.filter(m => m.category === category);
-      items.forEach(group => {
-        const card = document.createElement('div');
-        card.className = 'menu-item-card';
-        
-        let minPrice = 0;
-        let hasPrice = false;
-        if (group.options && Array.isArray(group.options) && group.options.length > 0) {
-            const prices = group.options.map(opt => opt.price).filter(p => typeof p === 'number' && !isNaN(p));
-            if (prices.length > 0) {
-                minPrice = Math.min(...prices);
-                hasPrice = true;
-            }
-        }
-        
-        const priceText = hasPrice ? `¥${minPrice}〜` : ''; // 0円なら表示しない
-
-        const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
-        card.innerHTML = `
-            <img src="${imgUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
-            <div class="item-info">
-                <p class="item-name">${group.name}</p>
-                <p class="item-price">${priceText}</p>
-            </div>
-        `;
-        card.onclick = () => showItemDetailModal(group);
-        dom.menuContainer.appendChild(card);
-      });
-  });
-}
-
-function updateCategoryNav(categories) {
+function updateCategoryNav(categories) { /* 前回コード参照 */
     const nav = document.querySelector('.category-nav');
     if (!nav) return;
     nav.innerHTML = '';
@@ -158,38 +170,25 @@ function updateCategoryNav(categories) {
     });
 }
 
-function showItemDetailModal(group) {
+function showItemDetailModal(group) { /* 前回コード参照 (ガード処理追加済みのもの) */
     dom.itemDetailName.textContent = group.name;
     dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
     dom.itemDetailDescription.textContent = group.description || '';
-    
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
-    
     if (group.options && Array.isArray(group.options) && group.options.length > 0) {
         group.options.forEach(opt => {
             const label = document.createElement('label');
             label.className = 'option-label';
-            label.onchange = (e) => {
-                handleOptionChange(group, e.target.value);
-                calculateDetailTotal();
-            };
-            label.innerHTML = `
-                <span>${opt.name}</span>
-                <span class="option-price">¥${opt.price}</span>
-                <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}">
-            `;
-            if (isFirstOption) {
-                label.querySelector('input').checked = true;
-                isFirstOption = false;
-            }
+            label.onchange = (e) => { handleOptionChange(group, e.target.value); calculateDetailTotal(); };
+            label.innerHTML = `<span>${opt.name}</span><span class="option-price">¥${opt.price}</span><input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}">`;
+            if (isFirstOption) { label.querySelector('input').checked = true; isFirstOption = false; }
             dom.itemDetailOptions.appendChild(label);
         });
     } else {
-        dom.itemDetailOptions.innerHTML = '<p style="color:#e64a19; font-weight:bold;">※現在、選択できるオプションがありません。</p>';
+        dom.itemDetailOptions.innerHTML = '<p style="color:#e64a19; font-weight:bold;">オプション情報がありません</p>';
         dom.addToCartButton.disabled = true;
     }
-
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
         dom.sectionFlavors.style.display = 'block';
@@ -201,97 +200,62 @@ function showItemDetailModal(group) {
             dom.itemDetailFlavors.appendChild(label);
         });
         if(group.options && group.options.length > 0) handleOptionChange(group, group.options[0].sku);
-    } else {
-        dom.sectionFlavors.style.display = 'none';
-    }
-
+    } else { dom.sectionFlavors.style.display = 'none'; }
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
     const section = document.getElementById('item-detail-toppings').closest('.option-section');
-    
-    if (toppings.length === 0) {
-        if(section) section.style.display = 'none';
-    } else {
+    if (toppings.length === 0) { if(section) section.style.display = 'none'; } 
+    else {
         if(section) section.style.display = 'block';
         toppings.forEach(top => {
             const label = document.createElement('label');
             label.className = 'option-label checkbox-label';
             label.onchange = calculateDetailTotal;
             const priceText = top.price > 0 ? `+¥${top.price}` : '無料';
-            label.innerHTML = `
-                <span>${top.name}</span>
-                <span class="option-price">${priceText}</span>
-                <input type="checkbox" name="topping-option" value="${top.id}" data-name="${top.name}" data-price="${top.price}">
-            `;
+            label.innerHTML = `<span>${top.name}</span><span class="option-price">${priceText}</span><input type="checkbox" name="topping-option" value="${top.id}" data-name="${top.name}" data-price="${top.price}">`;
             dom.itemDetailToppings.appendChild(label);
         });
     }
-
     let quantity = 1;
     dom.itemDetailQuantity.textContent = quantity;
     if(group.options && group.options.length > 0) dom.addToCartButton.disabled = false;
-
-    // ボタン設定 (既存のリスナー重複防止のためcloneNode)
     const setupButton = (btn, callback) => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
         newBtn.onclick = callback;
         return newBtn;
     };
-    
-    dom.itemDetailDecrease = setupButton(dom.itemDetailDecrease, () => {
-        if (quantity > 1) { quantity--; dom.itemDetailQuantity.textContent = quantity; calculateDetailTotal(); }
-    });
-    dom.itemDetailIncrease = setupButton(dom.itemDetailIncrease, () => {
-        quantity++; dom.itemDetailQuantity.textContent = quantity; calculateDetailTotal();
-    });
-
+    dom.itemDetailDecrease = setupButton(dom.itemDetailDecrease, () => { if (quantity > 1) { quantity--; dom.itemDetailQuantity.textContent = quantity; calculateDetailTotal(); } });
+    dom.itemDetailIncrease = setupButton(dom.itemDetailIncrease, () => { quantity++; dom.itemDetailQuantity.textContent = quantity; calculateDetailTotal(); });
     dom.addToCartButton = setupButton(dom.addToCartButton, () => {
         const selectedOptionEl = dom.itemDetailOptions.querySelector('input[name="price-option"]:checked');
-        if (!selectedOptionEl) {
-            showCustomAlert('選択エラー', 'サイズ/個数を選択してください。');
-            return;
-        }
-
+        if (!selectedOptionEl) { showCustomAlert('選択エラー', 'サイズ/個数を選択してください。'); return; }
         let selectedFlavors = [];
         if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
             const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input:checked');
-            if (flavorInputs.length === 0) {
-                showCustomAlert('選択エラー', '味を選択してください。');
-                return;
-            }
+            if (flavorInputs.length === 0) { showCustomAlert('選択エラー', '味を選択してください。'); return; }
             flavorInputs.forEach(input => selectedFlavors.push(input.value));
         }
-        
         const selectedToppings = [];
         dom.itemDetailToppings.querySelectorAll('input[name="topping-option"]:checked').forEach(el => {
             selectedToppings.push({ id: el.value, name: el.dataset.name, price: parseInt(el.dataset.price, 10) });
         });
-
         const itemData = {
-            groupId: group.id,
-            name: group.name,
-            sku: selectedOptionEl.value,
-            optionName: selectedOptionEl.dataset.name,
-            basePrice: parseInt(selectedOptionEl.dataset.price, 10),
-            flavors: selectedFlavors,
-            toppings: selectedToppings,
-            quantity: quantity
+            groupId: group.id, name: group.name, sku: selectedOptionEl.value,
+            optionName: selectedOptionEl.dataset.name, basePrice: parseInt(selectedOptionEl.dataset.price, 10),
+            flavors: selectedFlavors, toppings: selectedToppings, quantity: quantity
         };
-        
         addToCart(itemData);
         closeItemDetailModal();
     });
-
     calculateDetailTotal();
     dom.itemDetailModal.classList.add('visible');
 }
 
-function handleOptionChange(group, sku) {
+function handleOptionChange(group, sku) { /* 前回コード参照 */
     if (!group.flavors || group.flavors.length === 0) return;
     const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
     const isLargePortion = sku.includes('16'); 
-
     if (isLargePortion) {
         dom.flavorNote.textContent = '※2種類まで選択可能です。';
         flavorInputs.forEach(input => {
@@ -307,13 +271,11 @@ function handleOptionChange(group, sku) {
             input.onchange = null;
         });
         const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
-        if (checked.length > 1) { // ラジオボタンに戻ったときに複数選択されていたらリセット
-             for(let i=1; i<checked.length; i++) checked[i].checked = false;
-        }
+        if (checked.length > 1) { for(let i=1; i<checked.length; i++) checked[i].checked = false; }
     }
 }
 
-function limitFlavorSelection(e) {
+function limitFlavorSelection(e) { /* 前回コード参照 */
     const checked = dom.itemDetailFlavors.querySelectorAll('input[type="checkbox"]:checked');
     if (checked.length > 2) {
         e.target.checked = false;
@@ -321,7 +283,7 @@ function limitFlavorSelection(e) {
     }
 }
 
-function calculateDetailTotal() {
+function calculateDetailTotal() { /* 前回コード参照 */
     const selectedOptionEl = dom.itemDetailOptions.querySelector('input[name="price-option"]:checked');
     const basePrice = selectedOptionEl ? parseInt(selectedOptionEl.dataset.price, 10) : 0;
     let toppingPrice = 0;
@@ -331,11 +293,9 @@ function calculateDetailTotal() {
     dom.itemDetailTotalPreview.textContent = total;
 }
 
-function closeItemDetailModal() {
-    dom.itemDetailModal.classList.remove('visible');
-}
+function closeItemDetailModal() { dom.itemDetailModal.classList.remove('visible'); }
 
-function addToCart(newItem) {
+function addToCart(newItem) { /* 前回コード参照 */
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
   const newItemFlavors = newItem.flavors ? newItem.flavors.sort().join(',') : '';
   const existingItemIndex = cart.findIndex(cartItem => {
@@ -343,17 +303,15 @@ function addToCart(newItem) {
       const cartItemFlavors = cartItem.flavors ? cartItem.flavors.sort().join(',') : '';
       return cartItem.sku === newItem.sku && cartItemToppingId === newItemToppingId && cartItemFlavors === newItemFlavors;
   });
-
-  if (existingItemIndex > -1) {
-    cart[existingItemIndex].quantity += newItem.quantity;
-  } else {
+  if (existingItemIndex > -1) { cart[existingItemIndex].quantity += newItem.quantity; } 
+  else {
     const unitPrice = newItem.basePrice + newItem.toppings.reduce((sum, t) => sum + t.price, 0);
     cart.push({ ...newItem, unitPrice: unitPrice });
   }
   updateCartView();
 }
 
-function updateCartView() {
+function updateCartView() { /* 前回コード参照 */
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   dom.cartItemCount.textContent = totalItems;
@@ -362,31 +320,23 @@ function updateCartView() {
   dom.viewCartButton.disabled = cart.length === 0;
 }
 
-function openCartModal() {
-  renderCartItems();
-  updatePickupTimeOptions();
-  dom.cartModal.classList.add('visible');
-}
+function openCartModal() { renderCartItems(); updatePickupTimeOptions(); dom.cartModal.classList.add('visible'); }
 
-function updatePickupTimeOptions() {
+function updatePickupTimeOptions() { /* 前回コード参照 */
     const select = dom.pickupTime;
     if (!select) return;
     select.innerHTML = '';
     const shortestOpt = document.createElement('option');
-    shortestOpt.value = 'shortest';
-    shortestOpt.textContent = '最短希望';
+    shortestOpt.value = 'shortest'; shortestOpt.textContent = '最短希望';
     select.appendChild(shortestOpt);
-
     const now = new Date();
     const config = storeSettings;
     const interval = parseInt(config.interval) || 15;
     const prep = parseInt(config.prep) || 30;
-
     const parseTime = (val, def) => {
         const m = String(val).match(/(\d{1,2}):(\d{2})/);
         return m ? { h: parseInt(m[1], 10), m: parseInt(m[2], 10) } : def;
     };
-
     const openT = parseTime(config.open, { h: 11, m: 0 });
     const closeT = parseTime(config.close, { h: 21, m: 0 });
     const openDate = new Date(now); openDate.setHours(openT.h, openT.m, 0, 0);
@@ -394,11 +344,9 @@ function updatePickupTimeOptions() {
     const earliest = new Date(now.getTime() + prep * 60000);
     let startTime = (earliest > openDate) ? earliest : openDate;
     let currentSlot = new Date(startTime);
-    
     const remainder = currentSlot.getMinutes() % interval;
     if (remainder !== 0) currentSlot.setMinutes(currentSlot.getMinutes() + (interval - remainder));
     currentSlot.setSeconds(0); currentSlot.setMilliseconds(0);
-
     while (currentSlot <= closeDate) {
         const hours = currentSlot.getHours().toString().padStart(2, '0');
         const minutes = currentSlot.getMinutes().toString().padStart(2, '0');
@@ -410,11 +358,9 @@ function updatePickupTimeOptions() {
     }
 }
 
-function closeCartModal() {
-  dom.cartModal.classList.remove('visible');
-}
+function closeCartModal() { dom.cartModal.classList.remove('visible'); }
 
-function renderCartItems() {
+function renderCartItems() { /* 前回コード参照 */
   if (cart.length === 0) {
     dom.cartItemsContainer.innerHTML = '<p>カートは空です。</p>';
     dom.submitOrderButton.disabled = true;
@@ -422,19 +368,15 @@ function renderCartItems() {
   }
   dom.submitOrderButton.disabled = false;
   dom.cartItemsContainer.innerHTML = '';
-  
   cart.forEach((item, index) => {
     const itemEl = document.createElement('div');
     itemEl.className = 'cart-item';
-    
     let metaText = item.optionName;
     if (item.flavors && item.flavors.length > 0) metaText += ` / ${item.flavors.join('・')}`;
     const toppingStr = item.toppings.length > 0 ? `<div class="cart-item-toppings">+ ${item.toppings.map(t => t.name).join(', ')}</div>` : '';
-
     itemEl.innerHTML = `
         <div class="cart-item-details">
-            <p class="cart-item-name">${item.name}</p>
-            <p class="cart-item-meta">${metaText}</p>
+            <p class="cart-item-name">${item.name}</p><p class="cart-item-meta">${metaText}</p>
             ${toppingStr}
             <p class="cart-item-price">@¥${item.unitPrice} × ${item.quantity} = ¥${item.unitPrice * item.quantity}</p>
         </div>
@@ -452,24 +394,17 @@ function renderCartItems() {
   updateCartView();
 }
 
-window.updateItemQuantity = (index, change) => {
-  cart[index].quantity += change;
-  if (cart[index].quantity <= 0) cart.splice(index, 1);
-  renderCartItems();
-};
+function window_updateItemQuantity(index, change) { cart[index].quantity += change; if (cart[index].quantity <= 0) cart.splice(index, 1); renderCartItems(); }
+window.updateItemQuantity = window_updateItemQuantity;
+window.removeItemFromCart = (index) => { cart.splice(index, 1); renderCartItems(); };
 
-window.removeItemFromCart = (index) => {
-  cart.splice(index, 1);
-  renderCartItems();
-};
-
-async function confirmAndSubmitOrder() {
+async function confirmAndSubmitOrder() { /* 前回コード参照 */
   dom.submitOrderButton.disabled = true;
   dom.submitOrderButton.textContent = '注文処理中...';
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex] ? dom.pickupTime.options[dom.pickupTime.selectedIndex].text : "最短希望";
+  if (dom.pickupTime.value === 'shortest') pickupTime = '最短希望';
   const notes = dom.orderNotes ? dom.orderNotes.value.trim() : '';
-
   const orderData = {
     userId: userProfile ? userProfile.userId : 'GUEST', 
     displayName: userProfile ? userProfile.displayName : 'ゲスト',
@@ -481,7 +416,6 @@ async function confirmAndSubmitOrder() {
     })),
     totalPrice: totalPrice, pickupTime: pickupTime, notes: notes, type: "OSHIN_ORDER"
   };
-
   try {
     await fetch(BACKEND_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData) });
     await sendThanksMessage(orderData);
@@ -493,7 +427,7 @@ async function confirmAndSubmitOrder() {
   }
 }
 
-async function sendThanksMessage(orderData) {
+async function sendThanksMessage(orderData) { /* 前回コード参照 */
   if (!liff.isInClient()) return;
   const itemDetails = orderData.cart.map(item => {
         let details = item.option;
@@ -519,7 +453,6 @@ async function sendThanksMessage(orderData) {
         ], "margin": "md"}
     ];
     if (orderData.notes) contents.splice(2, 0, { "type": "text", "text": `備考: ${orderData.notes}`, "size": "sm", "color": "#ff5722", "wrap": true, "margin": "md" });
-
     try {
         await liff.sendMessages([{ "type": "flex", "altText": "ご注文内容の確認", "contents": { "type": "bubble",
             "header": { "type": "box", "layout": "vertical", "contents": [
@@ -548,6 +481,4 @@ function showCustomAlert(title, message, onOkCallback) {
     dom.customAlertOkButton.onclick = () => { closeCustomAlert(); if (typeof onOkCallback === 'function') onOkCallback(); };
 }
 
-function closeCustomAlert() {
-    dom.customAlertModal.classList.remove('visible');
-}
+function closeCustomAlert() { dom.customAlertModal.classList.remove('visible'); }
