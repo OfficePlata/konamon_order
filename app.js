@@ -71,7 +71,7 @@ async function fetchInitialData() {
         }
     } catch (err) {
         console.error("メニュー取得失敗:", err);
-        // ★変更: エラー内容を詳細に表示して原因を特定しやすくする
+        // エラー内容を詳細に表示して原因を特定しやすくする
         showCustomAlert("通信エラー", `メニューの読み込みに失敗しました。\n(${err.message})\n\n電波の良い場所で再度お試しください。`);
         menuData = FALLBACK_MENU_DATA;
     }
@@ -126,12 +126,15 @@ function setupEventListeners() {
 function displayMenu() {
   dom.menuContainer.innerHTML = '';
   
-  if (menuData.length === 0) {
+  if (!menuData || menuData.length === 0) {
       dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
       return;
   }
 
-  const categories = [...new Set(menuData.map(item => item.category))];
+  // カテゴリ抽出時のエラー防止（データ不備対策）
+  const validItems = menuData.filter(item => item && item.category);
+  const categories = [...new Set(validItems.map(item => item.category))];
+  
   updateCategoryNav(categories);
 
   categories.forEach(category => {
@@ -141,13 +144,21 @@ function displayMenu() {
       header.textContent = category;
       dom.menuContainer.appendChild(header);
 
-      const items = menuData.filter(m => m.category === category);
+      const items = validItems.filter(m => m.category === category);
       items.forEach(group => {
         const card = document.createElement('div');
         card.className = 'menu-item-card';
-        const minPrice = Math.min(...group.options.map(opt => opt.price));
+        
+        // ★修正: optionsが存在しない場合のエラー回避
+        let minPrice = 0;
+        if (group.options && Array.isArray(group.options) && group.options.length > 0) {
+            minPrice = Math.min(...group.options.map(opt => opt.price));
+        }
+
+        const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+
         card.innerHTML = `
-            <img src="${group.imageUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
+            <img src="${imgUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
             <div class="item-info">
                 <p class="item-name">${group.name}</p>
                 <p class="item-price">¥${minPrice}〜</p>
@@ -183,29 +194,33 @@ function updateCategoryNav(categories) {
 
 function showItemDetailModal(group) {
     dom.itemDetailName.textContent = group.name;
-    dom.itemDetailImg.src = group.imageUrl;
+    dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
     dom.itemDetailDescription.textContent = group.description || '';
     
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
-    group.options.forEach(opt => {
-        const label = document.createElement('label');
-        label.className = 'option-label';
-        label.onchange = (e) => {
-            handleOptionChange(group, e.target.value);
-            calculateDetailTotal();
-        };
-        label.innerHTML = `
-            <span>${opt.name}</span>
-            <span class="option-price">¥${opt.price}</span>
-            <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}">
-        `;
-        if (isFirstOption) {
-            label.querySelector('input').checked = true;
-            isFirstOption = false;
-        }
-        dom.itemDetailOptions.appendChild(label);
-    });
+    
+    // optionsの存在チェック
+    if (group.options && Array.isArray(group.options)) {
+        group.options.forEach(opt => {
+            const label = document.createElement('label');
+            label.className = 'option-label';
+            label.onchange = (e) => {
+                handleOptionChange(group, e.target.value);
+                calculateDetailTotal();
+            };
+            label.innerHTML = `
+                <span>${opt.name}</span>
+                <span class="option-price">¥${opt.price}</span>
+                <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}">
+            `;
+            if (isFirstOption) {
+                label.querySelector('input').checked = true;
+                isFirstOption = false;
+            }
+            dom.itemDetailOptions.appendChild(label);
+        });
+    }
 
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0) {
@@ -219,7 +234,10 @@ function showItemDetailModal(group) {
             `;
             dom.itemDetailFlavors.appendChild(label);
         });
-        handleOptionChange(group, group.options[0].sku);
+        // オプションがある場合のみ呼び出す
+        if(group.options && group.options.length > 0) {
+            handleOptionChange(group, group.options[0].sku);
+        }
     } else {
         dom.sectionFlavors.style.display = 'none';
     }
