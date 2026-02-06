@@ -1,0 +1,137 @@
+:root {
+    --brand-blue: #1e50a2;
+    --brand-orange: #E64A19;
+    --bg-color: #faf9f6;
+    --card-bg: #ffffff;
+}
+
+body {
+    font-family: "M PLUS Rounded 1c", sans-serif;
+    background-color: var(--bg-color);
+    color: #333;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+.guide-header {
+    background-color: var(--brand-blue);
+    color: white;
+    text-align: center;
+    padding: 2rem 1rem;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.guide-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.4;
+}
+
+.guide-header p {
+    margin-top: 0.5rem;
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.guide-container {
+    padding: 2rem 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.step-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 2px solid transparent;
+}
+
+.step-card.highlight {
+    border-color: var(--brand-orange);
+    background-color: #fff8f5;
+}
+
+.step-badge {
+    position: absolute;
+    top: -15px;
+    left: 15px;
+    background-color: var(--brand-blue);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.step-badge.check {
+    background-color: var(--brand-orange);
+}
+
+.step-content h2 {
+    color: var(--brand-blue);
+    margin-top: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.step-content p {
+    font-size: 0.95rem;
+}
+
+.step-image {
+    margin-top: 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.step-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.action-area {
+    text-align: center;
+    margin-top: 3rem;
+    padding: 2rem 1rem;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+}
+
+.action-area p {
+    font-weight: bold;
+    color: var(--brand-blue);
+    margin-bottom: 1rem;
+}
+
+.order-button {
+    display: inline-block;
+    background-color: var(--brand-orange);
+    color: white;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 1rem 3rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(230, 74, 25, 0.4);
+    transition: transform 0.2s;
+}
+
+.order-button:active {
+    transform: scale(0.95);
+}
+
+.guide-footer {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    font-size: 0.8rem;
+}
