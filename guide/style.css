@@ -84,17 +84,20 @@ body {
     font-size: 0.95rem;
 }
 
+/* 画像エリアの調整 */
 .step-image {
-    margin-top: 1rem;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-top: 1.5rem;
+    text-align: center; /* 画像を中央寄せ */
 }
 
 .step-image img {
     width: 100%;
+    max-width: 300px; /* スマホスクショが巨大になりすぎないように制限 */
     height: auto;
-    display: block;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: inline-block;
 }
 
 .action-area {
