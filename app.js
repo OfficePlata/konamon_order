@@ -35,7 +35,6 @@ async function fetchInitialData() {
         if (!response.ok) throw new Error(`Server Error: ${response.status}`);
         const data = await response.json();
         
-        // サーバーからエラーが返ってきた場合
         if (data.error) throw new Error(data.message || 'Server Logic Error');
 
         if (data.menu && Array.isArray(data.menu)) {
@@ -58,7 +57,6 @@ function displayMenu() {
       return;
   }
 
-  // カテゴリ抽出（nullチェック含む）
   const validItems = menuData.filter(item => item && item.category);
   const categories = [...new Set(validItems.map(item => item.category))];
   
@@ -76,7 +74,6 @@ function displayMenu() {
         const card = document.createElement('div');
         card.className = 'menu-item-card';
         
-        // 価格表示ロジック（安全策）
         let priceText = '価格要確認';
         if (group.options && Array.isArray(group.options) && group.options.length > 0) {
             const validPrices = group.options
@@ -90,8 +87,11 @@ function displayMenu() {
         }
 
         const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+        // キャッシュバスターを追加して画像更新を即時反映
+        const imgDisplayUrl = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
+
         card.innerHTML = `
-            <img src="${imgUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
+            <img src="${imgDisplayUrl}" alt="${group.name}" onerror="this.src='https://placehold.co/300x200/eee/ccc?text=No+Image'">
             <div class="item-info">
                 <p class="item-name">${group.name}</p>
                 <p class="item-price">${priceText}</p>
@@ -172,7 +172,8 @@ function updateCategoryNav(categories) {
 
 function showItemDetailModal(group) {
     dom.itemDetailName.textContent = group.name;
-    dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+    const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+    dom.itemDetailImg.src = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
     dom.itemDetailDescription.textContent = group.description || '';
     
     dom.itemDetailOptions.innerHTML = '';
@@ -215,7 +216,6 @@ function showItemDetailModal(group) {
             `;
             dom.itemDetailFlavors.appendChild(label);
         });
-        // オプションが存在する場合のみ呼び出す
         if(group.options && group.options.length > 0) {
             handleOptionChange(group, group.options[0].sku);
         }
@@ -225,12 +225,11 @@ function showItemDetailModal(group) {
 
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
+    const section = document.getElementById('item-detail-toppings').closest('.option-section');
     
     if (toppings.length === 0) {
-        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'none';
     } else {
-        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'block';
         
         toppings.forEach(top => {
@@ -251,7 +250,7 @@ function showItemDetailModal(group) {
     dom.itemDetailQuantity.textContent = quantity;
     if(group.options && group.options.length > 0) dom.addToCartButton.disabled = false;
 
-    // ボタン設定 (既存のリスナー重複防止のためcloneNode)
+    // ボタンのイベントリスナー再設定
     const setupButton = (btn, callback) => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
@@ -360,7 +359,7 @@ function closeItemDetailModal() {
 
 function addToCart(newItem) {
   // ★修正: 商品識別IDの生成を厳密化
-  // トッピングIDのソート結合
+  // トッピングIDのソート結合 (IDでソートして同一性を保証)
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
   // フレーバーのソート結合
   const newItemFlavors = Array.isArray(newItem.flavors) ? newItem.flavors.sort().join(',') : (newItem.flavors || '');
@@ -381,6 +380,7 @@ function addToCart(newItem) {
   } else {
     // カート内での単価計算（ベース＋トッピング）
     const unitPrice = newItem.basePrice + newItem.toppings.reduce((sum, t) => sum + t.price, 0);
+    // 既存配列に追加する形にする
     cart.push({
       ...newItem,
       unitPrice: unitPrice
@@ -418,7 +418,7 @@ function updatePickupTimeOptions() {
 
     const now = new Date();
     const config = storeSettings;
-    const interval = parseInt(config.interval) || 15;
+    const interval = parseInt(config.interval) || 5; // デフォルト5分
     const prep = parseInt(config.prep) || 30;
 
     const parseTime = (val, def) => {
@@ -478,21 +478,23 @@ function renderCartItems() {
     // ★修正: フレーバーとトッピングを詳細に表示
     let metaText = item.optionName;
     if (item.flavors && (Array.isArray(item.flavors) ? item.flavors.length > 0 : item.flavors)) {
-        // 配列の場合と文字列の場合に対応
-        const flavorStr = Array.isArray(item.flavors) ? item.flavors.join('・') : item.flavors;
-        if(flavorStr) metaText += ` / ${flavorStr}`;
+        const flavorStr = Array.isArray(item.flavors) ? item.flavors.join(' / ') : item.flavors;
+        if(flavorStr) metaText += ` <span style="color:#e64a19;">[${flavorStr}]</span>`;
     }
 
-    const toppingStr = item.toppings.length > 0 
-        ? `<div class="cart-item-toppings">+ ${item.toppings.map(t => t.name).join(', ')}</div>` 
-        : '';
+    let toppingHtml = '';
+    if (item.toppings && item.toppings.length > 0) {
+        toppingHtml = `<div class="cart-item-toppings" style="font-size:0.85rem; color:#555; margin-top:4px;">
+            + ${item.toppings.map(t => t.name).join('<br>+ ')}
+        </div>`;
+    }
 
     itemEl.innerHTML = `
         <div class="cart-item-details">
             <p class="cart-item-name">${item.name}</p>
             <p class="cart-item-meta">${metaText}</p>
-            ${toppingStr}
-            <p class="cart-item-price">@¥${item.unitPrice} × ${item.quantity} = ¥${item.unitPrice * item.quantity}</p>
+            ${toppingHtml}
+            <p class="cart-item-price">@¥${item.unitPrice} × ${item.quantity} = <strong>¥${item.unitPrice * item.quantity}</strong></p>
         </div>
         <div class="cart-item-actions">
             <div class="quantity-controls">
