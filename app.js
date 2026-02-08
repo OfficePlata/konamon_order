@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', initializeApp);
 
 const LIFF_ID = "2009023539-6ANIeNDa"; 
-// ★デプロイ後に発行された新しいURLに書き換えてください
 const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9oCuPpNwKOMERL7uun0OmB4tAew9NWqpokpwgwF9XNRbYdoPBHA/exec"; 
 
 let menuData = [];
@@ -138,7 +137,6 @@ function setupEventListeners() {
     dom.customAlertOkButton = document.getElementById('custom-alert-ok-button');
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
-    // ★追加
     dom.recipientName = document.getElementById('recipient-name');
 
     dom.viewCartButton.addEventListener('click', openCartModal);
@@ -171,39 +169,57 @@ function updateCategoryNav(categories) {
     });
 }
 
+// ★修正: 選択状態のスタイル適用をJavaScriptで行う (古い端末対策)
+function updateSelectionStyles(container) {
+    const labels = container.querySelectorAll('.option-label');
+    labels.forEach(label => {
+        const input = label.querySelector('input');
+        if (input && input.checked) {
+            label.classList.add('selected');
+        } else {
+            label.classList.remove('selected');
+        }
+    });
+}
+
 function showItemDetailModal(group) {
     dom.itemDetailName.textContent = group.name;
     const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
     dom.itemDetailImg.src = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
     dom.itemDetailDescription.textContent = group.description || '';
     
+    // --- サイズ・個数 (Radio) ---
     dom.itemDetailOptions.innerHTML = '';
     let isFirstOption = true;
-    
     if (group.options && Array.isArray(group.options) && group.options.length > 0) {
         group.options.forEach(opt => {
             const label = document.createElement('label');
             label.className = 'option-label';
-            label.onchange = (e) => {
-                handleOptionChange(group, e.target.value);
-                calculateDetailTotal();
-            };
             label.innerHTML = `
                 <span>${opt.name}</span>
                 <span class="option-price">¥${opt.price}</span>
                 <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}">
             `;
+            // イベント設定
+            label.querySelector('input').addEventListener('change', () => {
+                handleOptionChange(group, opt.sku);
+                calculateDetailTotal();
+                updateSelectionStyles(dom.itemDetailOptions);
+            });
+
             if (isFirstOption) {
                 label.querySelector('input').checked = true;
                 isFirstOption = false;
             }
             dom.itemDetailOptions.appendChild(label);
         });
+        updateSelectionStyles(dom.itemDetailOptions); // 初期状態反映
     } else {
         dom.itemDetailOptions.innerHTML = '<p style="color:#e64a19; font-weight:bold;">オプション情報がありません</p>';
         dom.addToCartButton.disabled = true;
     }
 
+    // --- 味 (Radio/Checkbox) ---
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
         dom.sectionFlavors.style.display = 'block';
@@ -215,8 +231,13 @@ function showItemDetailModal(group) {
                 <span>${flavor}</span>
                 <input type="radio" name="flavor-option" value="${flavor}">
             `;
+            label.querySelector('input').addEventListener('change', () => {
+                calculateDetailTotal();
+                updateSelectionStyles(dom.itemDetailFlavors);
+            });
             dom.itemDetailFlavors.appendChild(label);
         });
+        // 初期ロジック適用
         if(group.options && group.options.length > 0) {
             handleOptionChange(group, group.options[0].sku);
         }
@@ -224,26 +245,28 @@ function showItemDetailModal(group) {
         dom.sectionFlavors.style.display = 'none';
     }
 
+    // --- トッピング (Checkbox) ---
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
+    const section = document.getElementById('item-detail-toppings').closest('.option-section');
     
     if (toppings.length === 0) {
-        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'none';
     } else {
-        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'block';
-        
         toppings.forEach(top => {
             const label = document.createElement('label');
             label.className = 'option-label checkbox-label';
-            label.onchange = calculateDetailTotal;
             const priceText = top.price > 0 ? `+¥${top.price}` : '無料';
             label.innerHTML = `
                 <span>${top.name}</span>
                 <span class="option-price">${priceText}</span>
                 <input type="checkbox" name="topping-option" value="${top.id}" data-name="${top.name}" data-price="${top.price}">
             `;
+            label.querySelector('input').addEventListener('change', () => {
+                calculateDetailTotal();
+                updateSelectionStyles(dom.itemDetailToppings);
+            });
             dom.itemDetailToppings.appendChild(label);
         });
     }
@@ -252,7 +275,7 @@ function showItemDetailModal(group) {
     dom.itemDetailQuantity.textContent = quantity;
     if(group.options && group.options.length > 0) dom.addToCartButton.disabled = false;
 
-    // ボタン設定
+    // ボタン再設定
     const setupButton = (btn, callback) => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
@@ -312,27 +335,38 @@ function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
 
     const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
-    const isLargePortion = sku.includes('16'); 
+    const isLargePortion = sku.includes('16'); // 16個入り判定
 
-    if (isLargePortion) {
-        dom.flavorNote.textContent = '※2種類まで選択可能です。';
-        flavorInputs.forEach(input => {
+    // ★修正: flavorのinputタイプとname属性を動的に変更
+    flavorInputs.forEach(input => {
+        const wasChecked = input.checked;
+        if (isLargePortion) {
+            dom.flavorNote.textContent = '※2種類まで選択可能です。';
             input.type = 'checkbox';
-            input.name = 'flavor-option-check';
-            input.onchange = limitFlavorSelection;
-        });
-    } else {
-        dom.flavorNote.textContent = '※味を1つ選んでください。';
-        flavorInputs.forEach(input => {
+            input.name = 'flavor-option-check'; // 名前を変更してグループ化を解除/変更
+            // Checkbox用のリスナー更新
+            input.onchange = (e) => {
+                limitFlavorSelection(e); // 制限チェック
+                calculateDetailTotal();
+                updateSelectionStyles(dom.itemDetailFlavors);
+            };
+        } else {
+            dom.flavorNote.textContent = '※味を1つ選んでください。';
             input.type = 'radio';
-            input.name = 'flavor-option-radio';
-            input.onchange = null;
-        });
-        const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
-        if (checked.length > 1) {
-            for(let i=1; i<checked.length; i++) checked[i].checked = false;
+            input.name = 'flavor-option-radio'; // Radio用グループ
+            input.onchange = () => {
+                calculateDetailTotal();
+                updateSelectionStyles(dom.itemDetailFlavors);
+            }
+            // 複数選択されていた場合のリセット処理
+            // チェックされているもののうち、最初の一つだけ残す
+            const checkedInputs = dom.itemDetailFlavors.querySelectorAll('input:checked');
+            if (checkedInputs.length > 1) {
+                 for(let i=1; i<checkedInputs.length; i++) checkedInputs[i].checked = false;
+            }
         }
-    }
+    });
+    updateSelectionStyles(dom.itemDetailFlavors);
 }
 
 function limitFlavorSelection(e) {
@@ -405,7 +439,6 @@ function updatePickupTimeOptions() {
     if (!select) return;
     
     select.innerHTML = '';
-    
     const shortestOpt = document.createElement('option');
     shortestOpt.value = 'shortest';
     shortestOpt.textContent = '最短希望';
@@ -470,33 +503,36 @@ function renderCartItems() {
     const itemEl = document.createElement('div');
     itemEl.className = 'cart-item';
     
-    let metaText = item.optionName;
+    let metaText = `<span style="font-weight:bold; color:#1e50a2;">${item.optionName}</span>`;
+    
+    // 味の表示
     if (item.flavors && (Array.isArray(item.flavors) ? item.flavors.length > 0 : item.flavors)) {
         const flavorStr = Array.isArray(item.flavors) ? item.flavors.join(' / ') : item.flavors;
-        if(flavorStr) metaText += ` <span style="color:#e64a19;">[${flavorStr}]</span>`;
+        metaText += `<div style="font-size:0.9em; margin-top:2px;">味: ${flavorStr}</div>`;
     }
 
+    // トッピングの表示
     let toppingHtml = '';
     if (item.toppings && item.toppings.length > 0) {
-        toppingHtml = `<div class="cart-item-toppings" style="font-size:0.85rem; color:#555; margin-top:4px;">
-            + ${item.toppings.map(t => t.name).join('<br>+ ')}
+        toppingHtml = `<div class="cart-item-toppings" style="font-size:0.85rem; color:#E64A19; margin-top:4px;">
+            <span style="background:#fff3e0; padding:2px 6px; border-radius:4px;">
+              + ${item.toppings.map(t => t.name).join('</span> <span style="background:#fff3e0; padding:2px 6px; border-radius:4px;">+ ')}
+            </span>
         </div>`;
     }
 
     itemEl.innerHTML = `
         <div class="cart-item-details">
             <p class="cart-item-name">${item.name}</p>
-            <p class="cart-item-meta">${metaText}</p>
+            <div class="cart-item-meta">${metaText}</div>
             ${toppingHtml}
-            <p class="cart-item-price">@¥${item.unitPrice} × ${item.quantity} = <strong>¥${item.unitPrice * item.quantity}</strong></p>
+            <div class="cart-item-price-row">
+                <span class="cart-item-price">¥${item.unitPrice.toLocaleString()}</span>
+            </div>
         </div>
         <div class="cart-item-actions">
-            <div class="quantity-controls">
-                <button class="quantity-btn" onclick="updateItemQuantity(${index}, -1)">-</button>
-                <span class="quantity-display">${item.quantity}</span>
-                <button class="quantity-btn" onclick="updateItemQuantity(${index}, 1)">+</button>
-            </div>
-            <button class="remove-item-btn" onclick="removeItemFromCart(${index})">&times;</button>
+             <span class="quantity-display">x ${item.quantity}</span>
+             <button class="remove-item-btn" onclick="removeItemFromCart(${index})">削除</button>
         </div>
     `;
     dom.cartItemsContainer.appendChild(itemEl);
@@ -525,7 +561,6 @@ async function confirmAndSubmitOrder() {
       pickupTime = '最短希望';
   }
 
-  // ★追加: 受取人名の取得と必須チェック
   const recipientName = dom.recipientName ? dom.recipientName.value.trim() : '';
   if (!recipientName) {
       showCustomAlert('入力エラー', '受取人のお名前を入力してください。');
@@ -549,7 +584,7 @@ async function confirmAndSubmitOrder() {
     })),
     totalPrice: totalPrice,
     pickupTime: pickupTime,
-    recipientName: recipientName, // ★追加
+    recipientName: recipientName,
     notes: notes, 
     type: "OSHIN_ORDER"
   };
@@ -599,10 +634,9 @@ function createReceiptFlexMessage(orderData) {
         };
     });
 
-    // ★修正: Flex Messageに受取人名を表示
     const contents = [
         { "type": "text", "text": `受取人: ${orderData.recipientName} 様`, "weight": "bold", "size": "md", "margin": "md", "align": "center", "color": "#1e50a2" },
-        { "type": "text", "text": `時間: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "sm", "align": "center" },
+        { "type": "text", "text": `受取: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "sm", "align": "center" },
         { "type": "separator", "margin": "md" },
         ...itemDetails,
         { "type": "separator", "margin": "lg" },
@@ -613,7 +647,7 @@ function createReceiptFlexMessage(orderData) {
     ];
 
     if (orderData.notes) {
-        contents.splice(3, 0, { // リストの適当な位置に挿入
+        contents.splice(3, 0, { 
              "type": "text", "text": `備考: ${orderData.notes}`, "size": "sm", "color": "#ff5722", "wrap": true, "margin": "md" 
         });
     }
