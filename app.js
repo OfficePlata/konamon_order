@@ -6,7 +6,7 @@ const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9
 let menuData = [];
 let cart = [];
 let userProfile = null;
-let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 };
+let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 5 }; // 初期設定を5分刻みに変更
 let currentModalItem = null;
 
 // DOM要素キャッシュ
@@ -614,8 +614,9 @@ function updatePickupTimeOptions() {
     select.appendChild(opt);
 
     const now = new Date();
-    const interval = parseInt(storeSettings.interval) || 15;
-    const prep = parseInt(storeSettings.prep) || 30;
+    // 5分刻み、30分後からに固定
+    const interval = 5; 
+    const prep = 30;
 
     // 時間パース
     const parseTime = (tStr) => {
