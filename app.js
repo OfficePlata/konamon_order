@@ -87,7 +87,6 @@ function displayMenu() {
         }
 
         const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
-        // キャッシュバスターを追加して画像更新を即時反映
         const imgDisplayUrl = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
 
         card.innerHTML = `
@@ -138,7 +137,9 @@ function setupEventListeners() {
     dom.customAlertMessage = document.getElementById('custom-alert-message');
     dom.customAlertOkButton = document.getElementById('custom-alert-ok-button');
     dom.pickupTime = document.getElementById('pickup-time');
-    dom.orderNotes = document.getElementById('order-notes'); 
+    dom.orderNotes = document.getElementById('order-notes');
+    // ★追加
+    dom.recipientName = document.getElementById('recipient-name');
 
     dom.viewCartButton.addEventListener('click', openCartModal);
     dom.closeCartModal.addEventListener('click', closeCartModal);
@@ -225,11 +226,12 @@ function showItemDetailModal(group) {
 
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
-    const section = document.getElementById('item-detail-toppings').closest('.option-section');
     
     if (toppings.length === 0) {
+        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'none';
     } else {
+        const section = document.getElementById('item-detail-toppings').closest('.option-section');
         if(section) section.style.display = 'block';
         
         toppings.forEach(top => {
@@ -250,7 +252,7 @@ function showItemDetailModal(group) {
     dom.itemDetailQuantity.textContent = quantity;
     if(group.options && group.options.length > 0) dom.addToCartButton.disabled = false;
 
-    // ボタンのイベントリスナー再設定
+    // ボタン設定
     const setupButton = (btn, callback) => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
@@ -358,18 +360,13 @@ function closeItemDetailModal() {
 }
 
 function addToCart(newItem) {
-  // ★修正: 商品識別IDの生成を厳密化
-  // トッピングIDのソート結合 (IDでソートして同一性を保証)
   const newItemToppingId = newItem.toppings.map(t => t.id).sort().join(',');
-  // フレーバーのソート結合
   const newItemFlavors = Array.isArray(newItem.flavors) ? newItem.flavors.sort().join(',') : (newItem.flavors || '');
 
-  // 既存アイテム検索
   const existingItemIndex = cart.findIndex(cartItem => {
       const cartItemToppingId = cartItem.toppings.map(t => t.id).sort().join(',');
       const cartItemFlavors = Array.isArray(cartItem.flavors) ? cartItem.flavors.sort().join(',') : (cartItem.flavors || '');
       
-      // SKU、トッピング、フレーバーが全て一致する場合のみ同一商品とみなす
       return cartItem.sku === newItem.sku && 
              cartItemToppingId === newItemToppingId &&
              cartItemFlavors === newItemFlavors;
@@ -378,9 +375,7 @@ function addToCart(newItem) {
   if (existingItemIndex > -1) {
     cart[existingItemIndex].quantity += newItem.quantity;
   } else {
-    // カート内での単価計算（ベース＋トッピング）
     const unitPrice = newItem.basePrice + newItem.toppings.reduce((sum, t) => sum + t.price, 0);
-    // 既存配列に追加する形にする
     cart.push({
       ...newItem,
       unitPrice: unitPrice
@@ -418,7 +413,7 @@ function updatePickupTimeOptions() {
 
     const now = new Date();
     const config = storeSettings;
-    const interval = parseInt(config.interval) || 5; // デフォルト5分
+    const interval = parseInt(config.interval) || 5; 
     const prep = parseInt(config.prep) || 30;
 
     const parseTime = (val, def) => {
@@ -475,7 +470,6 @@ function renderCartItems() {
     const itemEl = document.createElement('div');
     itemEl.className = 'cart-item';
     
-    // ★修正: フレーバーとトッピングを詳細に表示
     let metaText = item.optionName;
     if (item.flavors && (Array.isArray(item.flavors) ? item.flavors.length > 0 : item.flavors)) {
         const flavorStr = Array.isArray(item.flavors) ? item.flavors.join(' / ') : item.flavors;
@@ -526,10 +520,18 @@ async function confirmAndSubmitOrder() {
   dom.submitOrderButton.textContent = '注文処理中...';
   
   const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-  
   let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
   if (dom.pickupTime.value === 'shortest') {
       pickupTime = '最短希望';
+  }
+
+  // ★追加: 受取人名の取得と必須チェック
+  const recipientName = dom.recipientName ? dom.recipientName.value.trim() : '';
+  if (!recipientName) {
+      showCustomAlert('入力エラー', '受取人のお名前を入力してください。');
+      dom.submitOrderButton.disabled = false;
+      dom.submitOrderButton.textContent = '注文を確定する';
+      return;
   }
 
   const notes = dom.orderNotes ? dom.orderNotes.value.trim() : '';
@@ -547,6 +549,7 @@ async function confirmAndSubmitOrder() {
     })),
     totalPrice: totalPrice,
     pickupTime: pickupTime,
+    recipientName: recipientName, // ★追加
     notes: notes, 
     type: "OSHIN_ORDER"
   };
@@ -596,8 +599,10 @@ function createReceiptFlexMessage(orderData) {
         };
     });
 
+    // ★修正: Flex Messageに受取人名を表示
     const contents = [
-        { "type": "text", "text": `受取: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "md", "align": "center" },
+        { "type": "text", "text": `受取人: ${orderData.recipientName} 様`, "weight": "bold", "size": "md", "margin": "md", "align": "center", "color": "#1e50a2" },
+        { "type": "text", "text": `時間: ${orderData.pickupTime}`, "size": "md", "weight": "bold", "margin": "sm", "align": "center" },
         { "type": "separator", "margin": "md" },
         ...itemDetails,
         { "type": "separator", "margin": "lg" },
@@ -608,7 +613,7 @@ function createReceiptFlexMessage(orderData) {
     ];
 
     if (orderData.notes) {
-        contents.splice(2, 0, { // リストの適当な位置に挿入
+        contents.splice(3, 0, { // リストの適当な位置に挿入
              "type": "text", "text": `備考: ${orderData.notes}`, "size": "sm", "color": "#ff5722", "wrap": true, "margin": "md" 
         });
     }
