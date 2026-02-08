@@ -36,7 +36,6 @@ async function initializeApp() {
             userProfile = await liff.getProfile().catch(()=>null);
         } else {
             // 自動ログインさせたい場合はここで liff.login();
-            // 今回はゲストでも見れるようにそのまま進む
         }
     }
     
@@ -247,18 +246,21 @@ function showItemDetailModal(group) {
         dom.itemDetailDescription.textContent = group.description || '';
         dom.itemDetailQuantity.textContent = '1';
 
+        // ★安全策: バックエンドからのデータがまだ文字列のままの場合、ここで配列に直す
+        if (typeof group.flavors === 'string') {
+            group.flavors = group.flavors.replace(/、/g, ',').split(',').map(s => s.trim()).filter(s => s);
+        }
+
         // 1. オプション（サイズ・個数）生成
         dom.itemDetailOptions.innerHTML = '';
         if (group.options && group.options.length > 0) {
             group.options.forEach((opt, index) => {
-                // SKUがない場合の安全策
                 const safeSku = opt.sku || `opt-${index}`;
                 
-                const label = document.createElement('div'); // divに変更して制御しやすくする
+                const label = document.createElement('div');
                 label.className = 'option-label';
                 if(index === 0) label.classList.add('selected');
                 
-                // HTML構造: クリック判定を確実にするため
                 label.innerHTML = `
                     <div style="display:flex; flex-direction:column;">
                         <span class="option-name">${opt.name}</span>
@@ -270,13 +272,11 @@ function showItemDetailModal(group) {
                            ${index === 0 ? 'checked' : ''}>
                 `;
                 
-                // クリックイベントをDIV全体に設定
                 label.addEventListener('click', (e) => {
-                    e.preventDefault(); // デフォルト動作（ダブル発火など）を防ぐ
+                    e.preventDefault(); 
                     const input = label.querySelector('input');
                     input.checked = true;
                     
-                    // スタイル更新
                     handleOptionChange(group, safeSku);
                     calculateDetailTotal();
                     updateSelectionStyles(dom.itemDetailOptions, 'radio');
@@ -290,15 +290,13 @@ function showItemDetailModal(group) {
 
         // 2. フレーバー生成
         dom.itemDetailFlavors.innerHTML = '';
-        if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
+        if (group.flavors && Array.isArray(group.flavors) && group.flavors.length > 0) {
             dom.sectionFlavors.style.display = 'block';
             
-            // SKUに基づいて初期状態（ラジオorチェック）を判定
             const initialSku = group.options && group.options[0] ? group.options[0].sku : '';
             const isLarge = String(initialSku).includes('16'); 
             
             renderFlavors(group, isLarge);
-
         } else {
             dom.sectionFlavors.style.display = 'none';
         }
@@ -328,9 +326,9 @@ function showItemDetailModal(group) {
                 `;
 
                 label.addEventListener('click', (e) => {
-                    e.preventDefault(); // デフォルト動作を防ぎ、完全にJSで制御する
+                    e.preventDefault();
                     const input = label.querySelector('input');
-                    input.checked = !input.checked; // トグル
+                    input.checked = !input.checked;
                     
                     calculateDetailTotal();
                     updateSelectionStyles(dom.itemDetailToppings, 'checkbox');
@@ -340,14 +338,11 @@ function showItemDetailModal(group) {
             });
         }
 
-        // 初期計算
         calculateDetailTotal();
-
-        // モーダル表示
         dom.itemDetailModal.classList.add('visible');
     } catch (e) {
         console.error(e);
-        showCustomAlert('エラー', '商品詳細の表示に失敗しました。');
+        showCustomAlert('エラー', '商品詳細の表示に失敗しました。\n' + e.message);
     }
 }
 
@@ -366,7 +361,6 @@ function renderFlavors(group, isMultiSelect) {
         const label = document.createElement('div');
         label.className = 'option-label';
         
-        // type決定
         const type = isMultiSelect ? 'checkbox' : 'radio';
         const name = isMultiSelect ? 'flavor-option-check' : 'flavor-option-radio';
         
@@ -377,27 +371,18 @@ function renderFlavors(group, isMultiSelect) {
         `;
         
         label.addEventListener('click', (e) => {
-            e.preventDefault(); // デフォルト動作を防ぐ
+            e.preventDefault();
             const input = label.querySelector('input');
             
             if (type === 'radio') {
                 input.checked = true;
-                // ラジオの場合、他の同名inputはブラウザが自動でoffにしないので（pointer-events:none等の影響で）、
-                // updateSelectionStylesでスタイルを消すだけでなく、checked属性も管理する必要があるが、
-                // DOM上のradioボタンはname属性が同じなら排他制御されるはず。
-                // ただし e.preventDefault() しているので、自分で排他制御するか、ラジオのチェックをつける必要がある。
-                // input.checked = true だけでは他のラジオが消えない場合があるため、明示的にクリア
                 const radios = dom.itemDetailFlavors.querySelectorAll(`input[name="${name}"]`);
                 radios.forEach(r => { if(r !== input) r.checked = false; });
-
             } else {
-                // チェックボックス
                 input.checked = !input.checked;
-                
-                // 制限チェック (2つまで)
                 const checkedCount = dom.itemDetailFlavors.querySelectorAll('input:checked').length;
                 if (checkedCount > 2) {
-                    input.checked = false; // 元に戻す
+                    input.checked = false;
                     showCustomAlert('選択制限', 'ハーフ＆ハーフは2種類までです。');
                 }
             }
@@ -413,12 +398,8 @@ function renderFlavors(group, isMultiSelect) {
 function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
 
-    // SKUに'16'が含まれていれば16個入り（ハーフ＆ハーフ可能）とみなすロジック
-    // SKUが文字列であることを保証
     const skuStr = String(sku);
     const isLargePortion = skuStr.includes('16'); 
-    
-    // 現在の選択状況を取得して再レンダリング
     renderFlavors(group, isLargePortion);
 }
 
