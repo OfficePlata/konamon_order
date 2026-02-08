@@ -727,10 +727,17 @@ async function confirmAndSubmitOrder() {
 }
 
 async function sendThanksMessage(orderData) {
+  // 1. LIFFクライアント外チェック
   if (!liff.isInClient()) {
-    // 外部ブラウザ等の場合は送信しない
-    console.warn('LIFF外のためメッセージ送信をスキップしました');
+    showCustomAlert('通知スキップ', 'LINEアプリ外のため、完了メッセージは送信されません。\n（注文は正常に完了しています）');
     return;
+  }
+
+  // 2. コンテキストチェック (送信先特定不能な場合)
+  const context = liff.getContext();
+  if (context && context.type === 'none') {
+     showCustomAlert('通知スキップ', 'トークルームが特定できないため、完了メッセージは送信されません。\n（注文は正常に完了しています）');
+     return;
   }
   
   // Flex Message生成
@@ -739,6 +746,9 @@ async function sendThanksMessage(orderData) {
       if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
       if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name || '').join(',')}`;
       
+      // ★修正: descが空文字だとエラーになるため、スペースを入れる
+      if (!desc) desc = ' ';
+
       return {
           "type": "box", "layout": "vertical", "margin": "md",
           "contents": [
