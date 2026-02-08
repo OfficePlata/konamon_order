@@ -709,7 +709,7 @@ async function confirmAndSubmitOrder() {
         // LINEメッセージ送信
         await sendThanksMessage(orderData);
         
-        showCustomAlert('注文完了', 'ご注文ありがとうございます！\nお店でお待ちしております。', () => {
+        showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！', () => {
             if(liff.isInClient()) liff.closeWindow();
             else location.reload();
         });
