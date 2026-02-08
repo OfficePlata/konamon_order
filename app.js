@@ -20,21 +20,30 @@ const FALLBACK_MENU_DATA = [{
 }];
 
 async function initializeApp() {
+  // ★修正: 最優先でDOM要素を取得する（これでエラー時もローディング操作が可能になる）
+  setupDOM(); 
+  
   if (!LIFF_ID) return showError("LIFF ID未設定");
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     userProfile = await liff.getProfile();
-    setupDOM();
+    
+    setupEventListeners(); // リスナー登録
     await fetchInitialData();
-  } catch (err) { showError(`初期化エラー: ${err.message}`); } 
-  finally { if(dom.loading) dom.loading.style.display = 'none'; }
+  } catch (err) { 
+    showError(`初期化エラー: ${err.message}`); 
+  } finally { 
+    if(dom.loading) dom.loading.style.display = 'none'; 
+  }
 }
 
+// DOM要素の取得を一箇所にまとめる
 function setupDOM() {
     dom.loading = document.getElementById('loading');
     dom.menuContainer = document.getElementById('menu-container');
     
+    // カート要素
     dom.viewCartButton = document.getElementById('view-cart-button');
     dom.cartItemCount = document.getElementById('cart-item-count');
     dom.cartTotalPrice = document.getElementById('cart-total-price');
@@ -44,6 +53,7 @@ function setupDOM() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     
+    // 詳細モーダル要素
     dom.itemDetailModal = document.getElementById('item-detail-modal');
     dom.closeItemDetailModal = document.getElementById('close-item-detail-modal');
     dom.itemDetailName = document.getElementById('item-detail-name');
@@ -62,6 +72,7 @@ function setupDOM() {
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
+    // その他
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
@@ -69,43 +80,58 @@ function setupDOM() {
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
     dom.recipientName = document.getElementById('recipient-name');
+}
 
-    // 静的イベントリスナー
-    dom.viewCartButton.onclick = openCartModal;
-    dom.closeCartModal.onclick = closeCartModal;
-    dom.cartModal.onclick = (e) => { if (e.target === dom.cartModal) closeCartModal(); };
-    dom.closeItemDetailModal.onclick = closeItemDetailModal;
-    dom.itemDetailModal.onclick = (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); };
-    dom.submitOrderButton.onclick = confirmAndSubmitOrder;
+// イベントリスナーの設定
+function setupEventListeners() {
+    if(dom.viewCartButton) dom.viewCartButton.addEventListener('click', openCartModal);
+    if(dom.closeCartModal) dom.closeCartModal.addEventListener('click', closeCartModal);
+    if(dom.cartModal) dom.cartModal.addEventListener('click', (e) => { if (e.target === dom.cartModal) closeCartModal(); });
+    
+    if(dom.closeItemDetailModal) dom.closeItemDetailModal.addEventListener('click', closeItemDetailModal);
+    if(dom.itemDetailModal) dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
+
+    if(dom.submitOrderButton) dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
 
     // 数量ボタン
-    dom.itemDetailDecrease.onclick = () => {
-        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
-        if (q > 1) { dom.itemDetailQuantity.textContent = q - 1; calculateDetailTotal(); }
-    };
-    dom.itemDetailIncrease.onclick = () => {
-        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
-        dom.itemDetailQuantity.textContent = q + 1;
-        calculateDetailTotal();
-    };
+    if(dom.itemDetailDecrease) {
+        dom.itemDetailDecrease.addEventListener('click', () => {
+            let q = parseInt(dom.itemDetailQuantity.textContent, 10);
+            if (q > 1) {
+                dom.itemDetailQuantity.textContent = q - 1;
+                calculateDetailTotal();
+            }
+        });
+    }
+    if(dom.itemDetailIncrease) {
+        dom.itemDetailIncrease.addEventListener('click', () => {
+            let q = parseInt(dom.itemDetailQuantity.textContent, 10);
+            dom.itemDetailQuantity.textContent = q + 1;
+            calculateDetailTotal();
+        });
+    }
 
-    // カート追加ボタン
-    dom.addToCartButton.onclick = handleAddToCartClick;
+    // カートへ追加ボタン
+    if(dom.addToCartButton) dom.addToCartButton.addEventListener('click', handleAddToCartClick);
 }
 
 async function fetchInitialData() {
     try {
         const response = await fetch(BACKEND_URL);
-        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
-        const data = await response.json();
+        if (!response.ok) {
+             const text = await response.text();
+             throw new Error(`Server Error: ${response.status} - ${text.substring(0, 100)}`);
+        }
         
-        if (data.error) throw new Error(data.message);
+        let data;
+        try { data = await response.json(); } 
+        catch (e) { throw new Error('データ形式エラー(JSON)'); }
 
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
             if (data.settings) storeSettings = { ...storeSettings, ...data.settings };
             displayMenu();
-        } else { throw new Error('データ形式エラー'); }
+        } else { throw new Error('メニューデータ不正'); }
     } catch (err) {
         console.error(err);
         showCustomAlert("通信エラー", `メニューを読み込めませんでした。\n(${err.message})`);
@@ -116,7 +142,10 @@ async function fetchInitialData() {
 
 function displayMenu() {
   dom.menuContainer.innerHTML = '';
-  if (!menuData || menuData.length === 0) return;
+  if (!menuData || menuData.length === 0) {
+      dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
+      return;
+  }
 
   const validItems = menuData.filter(item => item && item.category);
   const categories = [...new Set(validItems.map(item => item.category))];
@@ -136,9 +165,14 @@ function displayMenu() {
         card.className = 'menu-item-card';
         
         let priceText = '価格要確認';
-        if (group.options && group.options.length > 0) {
-            const validPrices = group.options.map(o => o.price).filter(p => p > 0);
-            if (validPrices.length > 0) priceText = `¥${Math.min(...validPrices)}〜`;
+        if (group.options && Array.isArray(group.options) && group.options.length > 0) {
+            const validPrices = group.options
+                .map(o => o.price)
+                .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
+            if (validPrices.length > 0) {
+                const min = Math.min(...validPrices);
+                priceText = `¥${min}〜`;
+            }
         }
 
         const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
@@ -151,14 +185,36 @@ function displayMenu() {
                 <p class="item-price">${priceText}</p>
             </div>
         `;
-        // カードクリック時の処理
+        // カードクリック時のイベントリスナー
         card.addEventListener('click', () => showItemDetailModal(group));
         dom.menuContainer.appendChild(card);
       });
   });
 }
 
-// ... (カテゴリナビゲーション等は既存のままでOK)
+function updateCategoryNav(categories) {
+    const nav = document.querySelector('.category-nav');
+    if (!nav) return;
+    nav.innerHTML = '';
+    categories.forEach(cat => {
+        const a = document.createElement('a');
+        a.href = `#cat-${cat}`;
+        a.textContent = cat;
+        a.onclick = (e) => {
+            e.preventDefault();
+            const target = document.getElementById(`cat-${cat}`);
+            if (target) {
+                const headerOffset = 60;
+                const elementPosition = target.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+            }
+        };
+        nav.appendChild(a);
+    });
+}
+
+// --- 詳細モーダル処理 ---
 
 function showItemDetailModal(group) {
     currentModalItem = group;
@@ -169,9 +225,9 @@ function showItemDetailModal(group) {
     dom.itemDetailDescription.textContent = group.description || '';
     dom.itemDetailQuantity.textContent = '1';
 
-    // オプション（ラジオボタン）
+    // 1. オプション（サイズ）生成
     dom.itemDetailOptions.innerHTML = '';
-    if (group.options && group.options.length > 0) {
+    if (group.options && Array.isArray(group.options) && group.options.length > 0) {
         group.options.forEach((opt, index) => {
             const label = document.createElement('label');
             label.className = 'option-label';
@@ -181,7 +237,7 @@ function showItemDetailModal(group) {
                 <span class="option-price">¥${opt.price}</span>
                 <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}" ${checked}>
             `;
-            // 変更イベント
+            // イベント設定
             label.querySelector('input').addEventListener('change', () => {
                 handleOptionChange(group, opt.sku);
                 calculateDetailTotal();
@@ -190,10 +246,10 @@ function showItemDetailModal(group) {
             dom.itemDetailOptions.appendChild(label);
         });
     } else {
-        dom.itemDetailOptions.innerHTML = '<p style="color:red">オプションがありません</p>';
+        dom.itemDetailOptions.innerHTML = '<p style="color:red">オプション情報がありません</p>';
     }
 
-    // フレーバー
+    // 2. フレーバー生成
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
         dom.sectionFlavors.style.display = 'block';
@@ -201,26 +257,33 @@ function showItemDetailModal(group) {
             if(!flavor) return;
             const label = document.createElement('label');
             label.className = 'option-label';
-            label.innerHTML = `<span>${flavor}</span><input type="radio" name="flavor-option" value="${flavor}">`;
+            label.innerHTML = `
+                <span>${flavor}</span>
+                <input type="radio" name="flavor-option" value="${flavor}">
+            `;
             label.querySelector('input').addEventListener('change', () => {
                 calculateDetailTotal();
                 updateSelectionStyles(dom.itemDetailFlavors);
             });
             dom.itemDetailFlavors.appendChild(label);
         });
-        if(group.options && group.options.length > 0) handleOptionChange(group, group.options[0].sku);
+        
+        if (group.options && group.options.length > 0) {
+            handleOptionChange(group, group.options[0].sku);
+        }
     } else {
         dom.sectionFlavors.style.display = 'none';
     }
 
-    // トッピング
+    // 3. トッピング生成
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
-    const tSection = document.getElementById('item-detail-toppings').closest('.option-section');
+    const toppingSection = document.getElementById('item-detail-toppings').closest('.option-section');
+    
     if (toppings.length === 0) {
-        if(tSection) tSection.style.display = 'none';
+        if (toppingSection) toppingSection.style.display = 'none';
     } else {
-        if(tSection) tSection.style.display = 'block';
+        if (toppingSection) toppingSection.style.display = 'block';
         toppings.forEach(top => {
             const label = document.createElement('label');
             label.className = 'option-label checkbox-label';
@@ -238,24 +301,24 @@ function showItemDetailModal(group) {
         });
     }
 
-    // 初期化
     updateSelectionStyles(dom.itemDetailOptions);
     updateSelectionStyles(dom.itemDetailFlavors);
     updateSelectionStyles(dom.itemDetailToppings);
     calculateDetailTotal();
 
     dom.itemDetailModal.classList.add('visible');
-    dom.addToCartButton.disabled = false; // ボタン有効化
+    dom.addToCartButton.disabled = false;
 }
 
 function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
-    const isLarge = sku && sku.includes('16');
+
+    const isLargePortion = sku && sku.includes('16'); // 簡易判定
     const inputs = dom.itemDetailFlavors.querySelectorAll('input');
 
-    if (isLarge) {
-        dom.flavorNote.textContent = '※2種類まで選択可能です。';
-        inputs.forEach(input => {
+    inputs.forEach(input => {
+        if (isLargePortion) {
+            dom.flavorNote.textContent = '※2種類まで選択可能です。';
             input.type = 'checkbox';
             input.name = 'flavor-option-check';
             input.onclick = (e) => {
@@ -265,20 +328,22 @@ function handleOptionChange(group, sku) {
                     showCustomAlert('選択制限', '味は2種類までしか選べません。');
                 }
             };
-        });
-    } else {
-        dom.flavorNote.textContent = '※味を1つ選んでください。';
-        inputs.forEach(input => {
+        } else {
+            dom.flavorNote.textContent = '※味を1つ選んでください。';
             input.type = 'radio';
             input.name = 'flavor-option-radio';
             input.onclick = null;
-        });
-        // リセット
+        }
+    });
+    
+    // ラジオボタンへの切り替え時に複数選択されていたらリセット
+    if (!isLargePortion) {
         const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
         if (checked.length > 1) {
-            for(let i=1; i<checked.length; i++) checked[i].checked = false;
+            for (let i = 1; i < checked.length; i++) checked[i].checked = false;
         }
     }
+    updateSelectionStyles(dom.itemDetailFlavors);
 }
 
 function updateSelectionStyles(container) {
@@ -302,17 +367,18 @@ function calculateDetailTotal() {
     dom.itemDetailTotalPreview.textContent = (basePrice + toppingPrice) * qty;
 }
 
+// カート追加
 function handleAddToCartClick() {
     if (!currentModalItem) return;
 
     const opt = dom.itemDetailOptions.querySelector('input:checked');
-    if (!opt) { showCustomAlert('エラー', 'サイズを選択してください'); return; }
+    if (!opt) { showCustomAlert('選択エラー', 'サイズ/個数を選択してください'); return; }
 
     let flavors = [];
     const fInputs = dom.itemDetailFlavors.querySelectorAll('input');
     if (fInputs.length > 0) {
         const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
-        if (checked.length === 0) { showCustomAlert('エラー', '味を選択してください'); return; }
+        if (checked.length === 0) { showCustomAlert('選択エラー', '味を選択してください'); return; }
         checked.forEach(el => flavors.push(el.value));
     }
 
@@ -339,18 +405,18 @@ function handleAddToCartClick() {
 }
 
 function addToCart(newItem) {
-    // ID生成
+    // 厳密な同一性チェック
     const genKey = (item) => {
         const fStr = (Array.isArray(item.flavors) ? item.flavors.sort() : []).join('|');
         const tStr = item.toppings.map(t=>t.id).sort().join('|');
         return `${item.sku}_${fStr}_${tStr}`;
     };
 
-    const key = genKey(newItem);
-    const existing = cart.find(item => genKey(item) === key);
+    const newKey = genKey(newItem);
+    const existingIndex = cart.findIndex(item => genKey(item) === newKey);
 
-    if (existing) {
-        existing.quantity += newItem.quantity;
+    if (existingIndex > -1) {
+        cart[existingIndex].quantity += newItem.quantity;
     } else {
         const tPrice = newItem.toppings.reduce((s,t) => s + t.price, 0);
         newItem.unitPrice = newItem.basePrice + tPrice;
@@ -368,10 +434,16 @@ function updateCartView() {
     dom.viewCartButton.disabled = count === 0;
 }
 
-// ★修正: カート表示を見やすく
+function openCartModal() {
+    renderCartItems();
+    updatePickupTimeOptions();
+    dom.cartModal.classList.add('visible');
+}
+function closeCartModal() { dom.cartModal.classList.remove('visible'); }
+
 function renderCartItems() {
     if (cart.length === 0) {
-        dom.cartItemsContainer.innerHTML = '<p style="text-align:center;padding:2rem;color:#999">カートは空です 🛒</p>';
+        dom.cartItemsContainer.innerHTML = '<p style="text-align:center; padding:2rem; color:#888;">カートは空です 🛒</p>';
         dom.submitOrderButton.disabled = true;
         return;
     }
@@ -382,41 +454,42 @@ function renderCartItems() {
         const div = document.createElement('div');
         div.className = 'cart-item';
         
-        let detailsHtml = '';
+        let meta = `<div style="font-weight:bold; color:#1e50a2;">${item.optionName}</div>`;
         if (item.flavors && item.flavors.length > 0) {
-            detailsHtml += `<div class="cart-detail-row"><span class="cart-detail-label">味:</span><span class="cart-detail-value">${item.flavors.join(' / ')}</span></div>`;
+            meta += `<div style="font-size:0.9em;">味: ${item.flavors.join(' / ')}</div>`;
         }
         if (item.toppings && item.toppings.length > 0) {
-            const tNames = item.toppings.map(t => t.name).join(' / ');
-            detailsHtml += `<div class="cart-detail-row"><span class="cart-detail-label">追加:</span><span class="cart-detail-value">${tNames}</span></div>`;
+            meta += `<div style="font-size:0.85em; color:#E64A19;">+ ${item.toppings.map(t=>t.name).join(', ')}</div>`;
         }
 
         div.innerHTML = `
-            <div class="cart-item-header">
-                <div class="cart-item-name">${item.name} (${item.optionName})</div>
-                <div class="cart-item-total-price">¥${(item.unitPrice * item.quantity).toLocaleString()}</div>
+            <div class="cart-item-details">
+                <div class="cart-item-name">${item.name}</div>
+                ${meta}
+                <div class="cart-item-price">¥${item.unitPrice.toLocaleString()} × ${item.quantity}</div>
             </div>
-            <div class="cart-item-body">
-                ${detailsHtml}
-                <div class="cart-item-footer">
-                    <div style="font-weight:bold;">数量: ${item.quantity}</div>
-                    <button class="remove-item-btn" onclick="removeItemFromCart(${index})">削除</button>
-                </div>
+            <div class="cart-item-actions">
+                <div style="font-weight:bold; font-size:1.1em;">¥${(item.unitPrice * item.quantity).toLocaleString()}</div>
+                <button class="remove-item-btn" onclick="removeItemFromCart(${index})">削除</button>
             </div>
         `;
         dom.cartItemsContainer.appendChild(div);
     });
 }
 
-function openCartModal() {
+// グローバル関数（削除ボタン用）
+window.removeItemFromCart = (index) => {
+    cart.splice(index, 1);
+    updateCartView();
     renderCartItems();
-    updatePickupTimeOptions();
-    dom.cartModal.classList.add('visible');
+};
+
+function closeItemDetailModal() {
+    dom.itemDetailModal.classList.remove('visible');
+    currentModalItem = null;
 }
-function closeCartModal() { dom.cartModal.classList.remove('visible'); }
 
-// ... (updatePickupTimeOptions, updateCategoryNav, confirmAndSubmitOrder などは前回と同じ) ...
-
+// 受取時間生成
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
@@ -431,11 +504,13 @@ function updatePickupTimeOptions() {
 
     const parseH = (s) => parseInt(s.split(':')[0], 10);
     const parseM = (s) => parseInt(s.split(':')[1], 10);
+    
     const startH = parseH(storeSettings.open), startM = parseM(storeSettings.open);
     const endH = parseH(storeSettings.close), endM = parseM(storeSettings.close);
 
     const openDate = new Date(now); openDate.setHours(startH, startM, 0, 0);
     const closeDate = new Date(now); closeDate.setHours(endH, endM, 0, 0);
+    
     const earliest = new Date(now.getTime() + prep * 60000);
     let t = (earliest > openDate) ? earliest : openDate;
     
@@ -455,15 +530,7 @@ function updatePickupTimeOptions() {
     }
 }
 
-// ... (以下、confirmAndSubmitOrder 等の後半部分は既存のロジックをそのまま利用してください)
-// ※ 非常に長くなるため省略しますが、必ず元の app.js の confirmAndSubmitOrder, sendThanksMessage, showCustomAlert 等を含めてください。
-
-window.removeItemFromCart = (index) => {
-    cart.splice(index, 1);
-    updateCartView();
-    renderCartItems();
-};
-
+// 注文送信
 async function confirmAndSubmitOrder() {
     dom.submitOrderButton.disabled = true;
     dom.submitOrderButton.textContent = '送信中...';
@@ -475,19 +542,20 @@ async function confirmAndSubmitOrder() {
         dom.submitOrderButton.textContent = '注文を確定する';
         return;
     }
-
-    const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    
     let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
     if (dom.pickupTime.value === 'shortest') pickupTime = '最短希望';
+    
+    const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
     const orderData = {
         userId: userProfile ? userProfile.userId : 'GUEST',
         displayName: userProfile ? userProfile.displayName : 'ゲスト',
         recipientName: recipientName,
-        cart: cart,
-        totalPrice: totalPrice,
         pickupTime: pickupTime,
         notes: dom.orderNotes.value.trim(),
+        totalPrice: totalPrice,
+        cart: cart, 
         type: 'OSHIN_ORDER'
     };
 
@@ -525,6 +593,7 @@ async function sendThanksMessage(orderData) {
           ]
       };
   });
+
   const contents = [
       { "type": "text", "text": `受取人: ${orderData.recipientName} 様`, "weight": "bold", "align": "center", "size": "md", "color": "#1e50a2" },
       { "type": "text", "text": `受取時間: ${orderData.pickupTime}`, "weight": "bold", "align": "center", "size": "lg", "margin": "sm" },
@@ -536,10 +605,12 @@ async function sendThanksMessage(orderData) {
           { "type": "text", "text": `¥${orderData.totalPrice.toLocaleString()}`, "weight": "bold", "align": "end", "color": "#E64A19", "size": "lg" }
       ], "margin": "md"}
   ];
+  
   if(orderData.notes) {
       contents.push({ "type": "separator", "margin": "md" });
       contents.push({ "type": "text", "text": `備考: ${orderData.notes}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
   }
+
   try {
     await liff.sendMessages([{
         "type": "flex", "altText": "ご注文ありがとうございます",
@@ -553,25 +624,6 @@ async function sendThanksMessage(orderData) {
         }
     }]);
   } catch (e) { console.log(e); }
-}
-
-function updateCategoryNav(categories) {
-    const nav = document.querySelector('.category-nav');
-    if (!nav) return;
-    nav.innerHTML = '';
-    categories.forEach(cat => {
-        const a = document.createElement('a');
-        a.textContent = cat;
-        a.onclick = (e) => {
-            e.preventDefault();
-            const target = document.getElementById(`cat-${cat}`);
-            if (target) {
-                const offset = target.getBoundingClientRect().top + window.pageYOffset - 70;
-                window.scrollTo({ top: offset, behavior: 'smooth' });
-            }
-        };
-        nav.appendChild(a);
-    });
 }
 
 function showError(msg) { console.error(msg); if(dom.loading) dom.loading.innerHTML = `<p style="color:red;padding:20px;">${msg}</p>`; }
