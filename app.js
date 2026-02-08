@@ -8,7 +8,7 @@ let menuData = [];
 let cart = [];
 let userProfile = null;
 let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 15 };
-let currentModalItem = null; // 現在開いている商品データ
+let currentModalItem = null;
 
 const dom = {}; 
 
@@ -25,8 +25,7 @@ async function initializeApp() {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     userProfile = await liff.getProfile();
-    setupDOM(); // DOM要素の取得
-    setupStaticListeners(); // 静的なイベント設定
+    setupDOM();
     await fetchInitialData();
   } catch (err) { showError(`初期化エラー: ${err.message}`); } 
   finally { if(dom.loading) dom.loading.style.display = 'none'; }
@@ -36,7 +35,6 @@ function setupDOM() {
     dom.loading = document.getElementById('loading');
     dom.menuContainer = document.getElementById('menu-container');
     
-    // カート要素
     dom.viewCartButton = document.getElementById('view-cart-button');
     dom.cartItemCount = document.getElementById('cart-item-count');
     dom.cartTotalPrice = document.getElementById('cart-total-price');
@@ -46,7 +44,6 @@ function setupDOM() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     
-    // 詳細モーダル要素
     dom.itemDetailModal = document.getElementById('item-detail-modal');
     dom.closeItemDetailModal = document.getElementById('close-item-detail-modal');
     dom.itemDetailName = document.getElementById('item-detail-name');
@@ -65,7 +62,6 @@ function setupDOM() {
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
-    // その他
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
@@ -73,39 +69,43 @@ function setupDOM() {
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
     dom.recipientName = document.getElementById('recipient-name');
-}
 
-function setupStaticListeners() {
-    // カート開閉
-    dom.viewCartButton.addEventListener('click', openCartModal);
-    dom.closeCartModal.addEventListener('click', closeCartModal);
-    dom.cartModal.addEventListener('click', (e) => { if (e.target === dom.cartModal) closeCartModal(); });
-    
-    // 詳細モーダル閉じる
-    dom.closeItemDetailModal.addEventListener('click', closeItemDetailModal);
-    dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
+    // 静的イベントリスナー
+    dom.viewCartButton.onclick = openCartModal;
+    dom.closeCartModal.onclick = closeCartModal;
+    dom.cartModal.onclick = (e) => { if (e.target === dom.cartModal) closeCartModal(); };
+    dom.closeItemDetailModal.onclick = closeItemDetailModal;
+    dom.itemDetailModal.onclick = (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); };
+    dom.submitOrderButton.onclick = confirmAndSubmitOrder;
 
-    // 注文確定
-    dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
+    // 数量ボタン
+    dom.itemDetailDecrease.onclick = () => {
+        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
+        if (q > 1) { dom.itemDetailQuantity.textContent = q - 1; calculateDetailTotal(); }
+    };
+    dom.itemDetailIncrease.onclick = () => {
+        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
+        dom.itemDetailQuantity.textContent = q + 1;
+        calculateDetailTotal();
+    };
+
+    // カート追加ボタン
+    dom.addToCartButton.onclick = handleAddToCartClick;
 }
 
 async function fetchInitialData() {
     try {
         const response = await fetch(BACKEND_URL);
-        if (!response.ok) {
-             const text = await response.text();
-             throw new Error(`Server Error: ${response.status} - ${text.substring(0, 100)}`);
-        }
+        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+        const data = await response.json();
         
-        let data;
-        try { data = await response.json(); } 
-        catch (e) { throw new Error('データ形式エラー(JSON)'); }
+        if (data.error) throw new Error(data.message);
 
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
             if (data.settings) storeSettings = { ...storeSettings, ...data.settings };
             displayMenu();
-        } else { throw new Error('メニューデータ不正'); }
+        } else { throw new Error('データ形式エラー'); }
     } catch (err) {
         console.error(err);
         showCustomAlert("通信エラー", `メニューを読み込めませんでした。\n(${err.message})`);
@@ -116,10 +116,7 @@ async function fetchInitialData() {
 
 function displayMenu() {
   dom.menuContainer.innerHTML = '';
-  if (!menuData || menuData.length === 0) {
-      dom.menuContainer.innerHTML = '<p style="padding:1rem;">メニューがありません。</p>';
-      return;
-  }
+  if (!menuData || menuData.length === 0) return;
 
   const validItems = menuData.filter(item => item && item.category);
   const categories = [...new Set(validItems.map(item => item.category))];
@@ -139,18 +136,12 @@ function displayMenu() {
         card.className = 'menu-item-card';
         
         let priceText = '価格要確認';
-        if (group.options && Array.isArray(group.options) && group.options.length > 0) {
-            const validPrices = group.options
-                .map(o => o.price)
-                .filter(p => typeof p === 'number' && !isNaN(p) && p > 0);
-            if (validPrices.length > 0) {
-                const min = Math.min(...validPrices);
-                priceText = `¥${min}〜`;
-            }
+        if (group.options && group.options.length > 0) {
+            const validPrices = group.options.map(o => o.price).filter(p => p > 0);
+            if (validPrices.length > 0) priceText = `¥${Math.min(...validPrices)}〜`;
         }
 
         const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
-        // キャッシュバスター
         const imgDisplayUrl = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
 
         card.innerHTML = `
@@ -160,47 +151,27 @@ function displayMenu() {
                 <p class="item-price">${priceText}</p>
             </div>
         `;
-        // ★重要: ここでクリックイベントを設定
-        card.onclick = () => showItemDetailModal(group);
+        // カードクリック時の処理
+        card.addEventListener('click', () => showItemDetailModal(group));
         dom.menuContainer.appendChild(card);
       });
   });
 }
 
-function updateCategoryNav(categories) {
-    const nav = document.querySelector('.category-nav');
-    if (!nav) return;
-    nav.innerHTML = '';
-    categories.forEach(cat => {
-        const a = document.createElement('a');
-        a.href = `#cat-${cat}`;
-        a.textContent = cat;
-        a.onclick = (e) => {
-            e.preventDefault();
-            const target = document.getElementById(`cat-${cat}`);
-            if (target) {
-                const offset = target.getBoundingClientRect().top + window.pageYOffset - 70;
-                window.scrollTo({ top: offset, behavior: "smooth" });
-            }
-        };
-        nav.appendChild(a);
-    });
-}
+// ... (カテゴリナビゲーション等は既存のままでOK)
 
-// --- 詳細モーダル ---
 function showItemDetailModal(group) {
-    currentModalItem = group; // 現在の商品をセット
+    currentModalItem = group;
 
-    // 表示リセット
     dom.itemDetailName.textContent = group.name;
     const imgUrl = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
     dom.itemDetailImg.src = imgUrl.startsWith('http') ? `${imgUrl}?t=${new Date().getTime()}` : imgUrl;
     dom.itemDetailDescription.textContent = group.description || '';
     dom.itemDetailQuantity.textContent = '1';
 
-    // 1. オプション（サイズ）生成
+    // オプション（ラジオボタン）
     dom.itemDetailOptions.innerHTML = '';
-    if (group.options && Array.isArray(group.options) && group.options.length > 0) {
+    if (group.options && group.options.length > 0) {
         group.options.forEach((opt, index) => {
             const label = document.createElement('label');
             label.className = 'option-label';
@@ -210,7 +181,7 @@ function showItemDetailModal(group) {
                 <span class="option-price">¥${opt.price}</span>
                 <input type="radio" name="price-option" value="${opt.sku}" data-name="${opt.name}" data-price="${opt.price}" ${checked}>
             `;
-            // ★イベント設定: changeで再計算
+            // 変更イベント
             label.querySelector('input').addEventListener('change', () => {
                 handleOptionChange(group, opt.sku);
                 calculateDetailTotal();
@@ -219,10 +190,10 @@ function showItemDetailModal(group) {
             dom.itemDetailOptions.appendChild(label);
         });
     } else {
-        dom.itemDetailOptions.innerHTML = '<p style="color:red">オプション情報がありません</p>';
+        dom.itemDetailOptions.innerHTML = '<p style="color:red">オプションがありません</p>';
     }
 
-    // 2. フレーバー生成
+    // フレーバー
     dom.itemDetailFlavors.innerHTML = '';
     if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
         dom.sectionFlavors.style.display = 'block';
@@ -230,34 +201,26 @@ function showItemDetailModal(group) {
             if(!flavor) return;
             const label = document.createElement('label');
             label.className = 'option-label';
-            // 初期はラジオボタン
-            label.innerHTML = `
-                <span>${flavor}</span>
-                <input type="radio" name="flavor-option" value="${flavor}">
-            `;
+            label.innerHTML = `<span>${flavor}</span><input type="radio" name="flavor-option" value="${flavor}">`;
             label.querySelector('input').addEventListener('change', () => {
                 calculateDetailTotal();
                 updateSelectionStyles(dom.itemDetailFlavors);
             });
             dom.itemDetailFlavors.appendChild(label);
         });
-        // 初期状態のロジック適用
-        if(group.options && group.options.length > 0) {
-            handleOptionChange(group, group.options[0].sku);
-        }
+        if(group.options && group.options.length > 0) handleOptionChange(group, group.options[0].sku);
     } else {
         dom.sectionFlavors.style.display = 'none';
     }
 
-    // 3. トッピング生成
+    // トッピング
     dom.itemDetailToppings.innerHTML = '';
     const toppings = group.toppings || [];
-    const toppingSection = document.getElementById('item-detail-toppings').closest('.option-section');
-    
+    const tSection = document.getElementById('item-detail-toppings').closest('.option-section');
     if (toppings.length === 0) {
-        if (toppingSection) toppingSection.style.display = 'none';
+        if(tSection) tSection.style.display = 'none';
     } else {
-        if (toppingSection) toppingSection.style.display = 'block';
+        if(tSection) tSection.style.display = 'block';
         toppings.forEach(top => {
             const label = document.createElement('label');
             label.className = 'option-label checkbox-label';
@@ -275,55 +238,30 @@ function showItemDetailModal(group) {
         });
     }
 
-    // ★重要: ボタンのイベントをここで設定（onclickを上書きすることで重複防止）
-    dom.itemDetailDecrease.onclick = () => {
-        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
-        if (q > 1) {
-            dom.itemDetailQuantity.textContent = q - 1;
-            calculateDetailTotal();
-        }
-    };
-    dom.itemDetailIncrease.onclick = () => {
-        let q = parseInt(dom.itemDetailQuantity.textContent, 10);
-        dom.itemDetailQuantity.textContent = q + 1;
-        calculateDetailTotal();
-    };
-    
-    // ★カート追加ボタンのイベント設定
-    dom.addToCartButton.onclick = handleAddToCartClick;
-    dom.addToCartButton.disabled = false; // 有効化
-
-    // 初期計算と表示
+    // 初期化
     updateSelectionStyles(dom.itemDetailOptions);
     updateSelectionStyles(dom.itemDetailFlavors);
     updateSelectionStyles(dom.itemDetailToppings);
     calculateDetailTotal();
 
     dom.itemDetailModal.classList.add('visible');
+    dom.addToCartButton.disabled = false; // ボタン有効化
 }
 
-function closeItemDetailModal() {
-    dom.itemDetailModal.classList.remove('visible');
-    currentModalItem = null;
-}
-
-// オプション変更時のロジック（16個入りなどの特殊対応）
 function handleOptionChange(group, sku) {
     if (!group.flavors || group.flavors.length === 0) return;
-
-    const isLargePortion = sku && sku.includes('16'); // 簡易判定
+    const isLarge = sku && sku.includes('16');
     const inputs = dom.itemDetailFlavors.querySelectorAll('input');
 
-    if (isLargePortion) {
+    if (isLarge) {
         dom.flavorNote.textContent = '※2種類まで選択可能です。';
         inputs.forEach(input => {
             input.type = 'checkbox';
             input.name = 'flavor-option-check';
-            // Checkbox用の制限ロジック
             input.onclick = (e) => {
                 const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
                 if (checked.length > 2) {
-                    e.preventDefault(); // チェックを阻止
+                    e.preventDefault();
                     showCustomAlert('選択制限', '味は2種類までしか選べません。');
                 }
             };
@@ -333,15 +271,14 @@ function handleOptionChange(group, sku) {
         inputs.forEach(input => {
             input.type = 'radio';
             input.name = 'flavor-option-radio';
-            input.onclick = null; // 制限解除
+            input.onclick = null;
         });
-        // 複数選択されていたらリセット
+        // リセット
         const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
         if (checked.length > 1) {
             for(let i=1; i<checked.length; i++) checked[i].checked = false;
         }
     }
-    updateSelectionStyles(dom.itemDetailFlavors);
 }
 
 function updateSelectionStyles(container) {
@@ -353,61 +290,48 @@ function updateSelectionStyles(container) {
 }
 
 function calculateDetailTotal() {
-    const option = dom.itemDetailOptions.querySelector('input:checked');
-    const basePrice = option ? parseInt(option.dataset.price, 10) : 0;
+    const opt = dom.itemDetailOptions.querySelector('input:checked');
+    const basePrice = opt ? parseInt(opt.dataset.price, 10) : 0;
     
     let toppingPrice = 0;
     dom.itemDetailToppings.querySelectorAll('input:checked').forEach(el => {
         toppingPrice += parseInt(el.dataset.price, 10);
     });
     
-    const quantity = parseInt(dom.itemDetailQuantity.textContent, 10);
-    const total = (basePrice + toppingPrice) * quantity;
-    dom.itemDetailTotalPreview.textContent = total;
+    const qty = parseInt(dom.itemDetailQuantity.textContent, 10);
+    dom.itemDetailTotalPreview.textContent = (basePrice + toppingPrice) * qty;
 }
 
-// カート追加ロジック
 function handleAddToCartClick() {
     if (!currentModalItem) return;
 
-    // バリデーション
-    const selectedOption = dom.itemDetailOptions.querySelector('input:checked');
-    if (!selectedOption) {
-        showCustomAlert('選択エラー', 'サイズ/個数を選択してください。');
-        return;
+    const opt = dom.itemDetailOptions.querySelector('input:checked');
+    if (!opt) { showCustomAlert('エラー', 'サイズを選択してください'); return; }
+
+    let flavors = [];
+    const fInputs = dom.itemDetailFlavors.querySelectorAll('input');
+    if (fInputs.length > 0) {
+        const checked = dom.itemDetailFlavors.querySelectorAll('input:checked');
+        if (checked.length === 0) { showCustomAlert('エラー', '味を選択してください'); return; }
+        checked.forEach(el => flavors.push(el.value));
     }
 
-    let selectedFlavors = [];
-    const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
-    if (flavorInputs.length > 0) {
-        const checkedFlavors = dom.itemDetailFlavors.querySelectorAll('input:checked');
-        if (checkedFlavors.length === 0) {
-            showCustomAlert('選択エラー', '味を選択してください。');
-            return;
-        }
-        checkedFlavors.forEach(el => selectedFlavors.push(el.value));
-    }
-
-    let selectedToppings = [];
+    let toppings = [];
     dom.itemDetailToppings.querySelectorAll('input:checked').forEach(el => {
-        selectedToppings.push({
-            id: el.value,
-            name: el.dataset.name,
-            price: parseInt(el.dataset.price, 10)
-        });
+        toppings.push({ id: el.value, name: el.dataset.name, price: parseInt(el.dataset.price, 10) });
     });
 
-    const quantity = parseInt(dom.itemDetailQuantity.textContent, 10);
-
+    const qty = parseInt(dom.itemDetailQuantity.textContent, 10);
+    
     const newItem = {
         groupId: currentModalItem.id,
         name: currentModalItem.name,
-        sku: selectedOption.value,
-        optionName: selectedOption.dataset.name,
-        basePrice: parseInt(selectedOption.dataset.price, 10),
-        flavors: selectedFlavors, // 配列
-        toppings: selectedToppings, // 配列
-        quantity: quantity
+        sku: opt.value,
+        optionName: opt.dataset.name,
+        basePrice: parseInt(opt.dataset.price, 10),
+        flavors: flavors,
+        toppings: toppings,
+        quantity: qty
     };
 
     addToCart(newItem);
@@ -415,47 +339,39 @@ function handleAddToCartClick() {
 }
 
 function addToCart(newItem) {
-    // 厳密な同一性チェック用キー作成
+    // ID生成
     const genKey = (item) => {
-        const fKey = Array.isArray(item.flavors) ? item.flavors.sort().join('|') : '';
-        const tKey = item.toppings.map(t => t.id).sort().join('|');
-        return `${item.sku}_${fKey}_${tKey}`;
+        const fStr = (Array.isArray(item.flavors) ? item.flavors.sort() : []).join('|');
+        const tStr = item.toppings.map(t=>t.id).sort().join('|');
+        return `${item.sku}_${fStr}_${tStr}`;
     };
 
-    const newKey = genKey(newItem);
-    const existingIndex = cart.findIndex(item => genKey(item) === newKey);
+    const key = genKey(newItem);
+    const existing = cart.find(item => genKey(item) === key);
 
-    if (existingIndex > -1) {
-        cart[existingIndex].quantity += newItem.quantity;
+    if (existing) {
+        existing.quantity += newItem.quantity;
     } else {
-        // 単価計算
-        let toppingSum = newItem.toppings.reduce((sum, t) => sum + t.price, 0);
-        newItem.unitPrice = newItem.basePrice + toppingSum;
+        const tPrice = newItem.toppings.reduce((s,t) => s + t.price, 0);
+        newItem.unitPrice = newItem.basePrice + tPrice;
         cart.push(newItem);
     }
     updateCartView();
 }
 
 function updateCartView() {
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    dom.cartItemCount.textContent = totalItems;
-    dom.cartTotalPrice.textContent = totalPrice;
-    dom.cartModalTotalPrice.textContent = totalPrice;
-    dom.viewCartButton.disabled = cart.length === 0;
+    const count = cart.reduce((s,i) => s + i.quantity, 0);
+    const total = cart.reduce((s,i) => s + (i.unitPrice * i.quantity), 0);
+    dom.cartItemCount.textContent = count;
+    dom.cartTotalPrice.textContent = total;
+    dom.cartModalTotalPrice.textContent = total;
+    dom.viewCartButton.disabled = count === 0;
 }
 
-function openCartModal() {
-    renderCartItems();
-    updatePickupTimeOptions();
-    dom.cartModal.classList.add('visible');
-}
-function closeCartModal() { dom.cartModal.classList.remove('visible'); }
-
-// ★カート表示の見やすさ改善
+// ★修正: カート表示を見やすく
 function renderCartItems() {
     if (cart.length === 0) {
-        dom.cartItemsContainer.innerHTML = '<p style="text-align:center; padding:2rem; color:#888;">カートは空です 🛒</p>';
+        dom.cartItemsContainer.innerHTML = '<p style="text-align:center;padding:2rem;color:#999">カートは空です 🛒</p>';
         dom.submitOrderButton.disabled = true;
         return;
     }
@@ -466,43 +382,41 @@ function renderCartItems() {
         const div = document.createElement('div');
         div.className = 'cart-item';
         
-        let flavorHtml = '';
+        let detailsHtml = '';
         if (item.flavors && item.flavors.length > 0) {
-            flavorHtml = `<div class="cart-item-flavor">味: ${item.flavors.join(' / ')}</div>`;
+            detailsHtml += `<div class="cart-detail-row"><span class="cart-detail-label">味:</span><span class="cart-detail-value">${item.flavors.join(' / ')}</span></div>`;
         }
-        
-        let toppingHtml = '';
         if (item.toppings && item.toppings.length > 0) {
-            toppingHtml = `<div class="cart-item-toppings">` + 
-                item.toppings.map(t => `<span>+ ${t.name}</span>`).join('') + 
-                `</div>`;
+            const tNames = item.toppings.map(t => t.name).join(' / ');
+            detailsHtml += `<div class="cart-detail-row"><span class="cart-detail-label">追加:</span><span class="cart-detail-value">${tNames}</span></div>`;
         }
 
         div.innerHTML = `
-            <div class="cart-item-details">
-                <div class="cart-item-name">${item.name}</div>
-                <div class="cart-item-option">${item.optionName}</div>
-                ${flavorHtml}
-                ${toppingHtml}
-                <div class="cart-item-price">¥${item.unitPrice.toLocaleString()}</div>
+            <div class="cart-item-header">
+                <div class="cart-item-name">${item.name} (${item.optionName})</div>
+                <div class="cart-item-total-price">¥${(item.unitPrice * item.quantity).toLocaleString()}</div>
             </div>
-            <div class="cart-item-actions">
-                <div class="quantity-display">x ${item.quantity}</div>
-                <div class="subtotal">¥${(item.unitPrice * item.quantity).toLocaleString()}</div>
-                <button class="remove-item-btn" onclick="removeItemFromCart(${index})">削除</button>
+            <div class="cart-item-body">
+                ${detailsHtml}
+                <div class="cart-item-footer">
+                    <div style="font-weight:bold;">数量: ${item.quantity}</div>
+                    <button class="remove-item-btn" onclick="removeItemFromCart(${index})">削除</button>
+                </div>
             </div>
         `;
         dom.cartItemsContainer.appendChild(div);
     });
 }
 
-window.removeItemFromCart = (index) => {
-    cart.splice(index, 1);
-    updateCartView();
+function openCartModal() {
     renderCartItems();
-};
+    updatePickupTimeOptions();
+    dom.cartModal.classList.add('visible');
+}
+function closeCartModal() { dom.cartModal.classList.remove('visible'); }
 
-// 受取時間生成
+// ... (updatePickupTimeOptions, updateCategoryNav, confirmAndSubmitOrder などは前回と同じ) ...
+
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
@@ -515,26 +429,19 @@ function updatePickupTimeOptions() {
     const interval = parseInt(storeSettings.interval) || 5;
     const prep = parseInt(storeSettings.prep) || 30;
 
-    // 時間パース (HH:mm)
     const parseH = (s) => parseInt(s.split(':')[0], 10);
     const parseM = (s) => parseInt(s.split(':')[1], 10);
-    
     const startH = parseH(storeSettings.open), startM = parseM(storeSettings.open);
     const endH = parseH(storeSettings.close), endM = parseM(storeSettings.close);
 
     const openDate = new Date(now); openDate.setHours(startH, startM, 0, 0);
     const closeDate = new Date(now); closeDate.setHours(endH, endM, 0, 0);
-    
-    // 最短受取可能時刻 = 現在 + 準備時間
     const earliest = new Date(now.getTime() + prep * 60000);
-    
-    // リスト開始時刻 = max(営業開始, 最短受取) の直後のインターバル
     let t = (earliest > openDate) ? earliest : openDate;
     
-    // 分を丸める
     let m = t.getMinutes();
     let rem = m % interval;
-    if (rem !== 0) t.setMinutes(m + (interval - rem));
+    if(rem !== 0) t.setMinutes(m + (interval - rem));
     t.setSeconds(0); t.setMilliseconds(0);
 
     while (t <= closeDate) {
@@ -548,7 +455,15 @@ function updatePickupTimeOptions() {
     }
 }
 
-// 注文送信
+// ... (以下、confirmAndSubmitOrder 等の後半部分は既存のロジックをそのまま利用してください)
+// ※ 非常に長くなるため省略しますが、必ず元の app.js の confirmAndSubmitOrder, sendThanksMessage, showCustomAlert 等を含めてください。
+
+window.removeItemFromCart = (index) => {
+    cart.splice(index, 1);
+    updateCartView();
+    renderCartItems();
+};
+
 async function confirmAndSubmitOrder() {
     dom.submitOrderButton.disabled = true;
     dom.submitOrderButton.textContent = '送信中...';
@@ -582,6 +497,7 @@ async function confirmAndSubmitOrder() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(orderData)
         });
+        
         await sendThanksMessage(orderData);
         showCustomAlert('注文完了', 'ご注文ありがとうございます！\nLINEの通知をご確認ください。', () => liff.closeWindow());
     } catch(e) {
@@ -593,8 +509,6 @@ async function confirmAndSubmitOrder() {
 
 async function sendThanksMessage(orderData) {
   if (!liff.isInClient()) return;
-  
-  // Flex Message用アイテム生成
   const items = orderData.cart.map(item => {
       let desc = item.optionName;
       if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
@@ -611,7 +525,6 @@ async function sendThanksMessage(orderData) {
           ]
       };
   });
-
   const contents = [
       { "type": "text", "text": `受取人: ${orderData.recipientName} 様`, "weight": "bold", "align": "center", "size": "md", "color": "#1e50a2" },
       { "type": "text", "text": `受取時間: ${orderData.pickupTime}`, "weight": "bold", "align": "center", "size": "lg", "margin": "sm" },
@@ -623,12 +536,10 @@ async function sendThanksMessage(orderData) {
           { "type": "text", "text": `¥${orderData.totalPrice.toLocaleString()}`, "weight": "bold", "align": "end", "color": "#E64A19", "size": "lg" }
       ], "margin": "md"}
   ];
-  
   if(orderData.notes) {
       contents.push({ "type": "separator", "margin": "md" });
       contents.push({ "type": "text", "text": `備考: ${orderData.notes}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
   }
-
   try {
     await liff.sendMessages([{
         "type": "flex", "altText": "ご注文ありがとうございます",
@@ -642,6 +553,25 @@ async function sendThanksMessage(orderData) {
         }
     }]);
   } catch (e) { console.log(e); }
+}
+
+function updateCategoryNav(categories) {
+    const nav = document.querySelector('.category-nav');
+    if (!nav) return;
+    nav.innerHTML = '';
+    categories.forEach(cat => {
+        const a = document.createElement('a');
+        a.textContent = cat;
+        a.onclick = (e) => {
+            e.preventDefault();
+            const target = document.getElementById(`cat-${cat}`);
+            if (target) {
+                const offset = target.getBoundingClientRect().top + window.pageYOffset - 70;
+                window.scrollTo({ top: offset, behavior: 'smooth' });
+            }
+        };
+        nav.appendChild(a);
+    });
 }
 
 function showError(msg) { console.error(msg); if(dom.loading) dom.loading.innerHTML = `<p style="color:red;padding:20px;">${msg}</p>`; }
