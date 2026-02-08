@@ -727,19 +727,23 @@ async function confirmAndSubmitOrder() {
 }
 
 async function sendThanksMessage(orderData) {
-  if (!liff.isInClient()) return;
+  if (!liff.isInClient()) {
+    // 外部ブラウザ等の場合は送信しない
+    console.warn('LIFF外のためメッセージ送信をスキップしました');
+    return;
+  }
   
   // Flex Message生成
   const items = orderData.cart.map(item => {
-      let desc = item.optionName;
+      let desc = item.optionName || '';
       if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
-      if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name).join(',')}`;
+      if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name || '').join(',')}`;
       
       return {
           "type": "box", "layout": "vertical", "margin": "md",
           "contents": [
               { "type": "box", "layout": "horizontal", "contents": [
-                  { "type": "text", "text": item.name, "weight": "bold", "flex": 3, "wrap": true },
+                  { "type": "text", "text": item.name || '商品', "weight": "bold", "flex": 3, "wrap": true },
                   { "type": "text", "text": `x${item.quantity}`, "align": "end", "flex": 1 }
               ]},
               { "type": "text", "text": desc, "size": "xs", "color": "#888888", "wrap": true }
@@ -748,7 +752,7 @@ async function sendThanksMessage(orderData) {
   });
 
   const contents = [
-      { "type": "text", "text": `受取人: ${orderData.recipientName} 様`, "weight": "bold", "align": "center", "size": "md", "color": "#1e50a2" },
+      { "type": "text", "text": `受取人: ${orderData.recipientName || 'ゲスト'} 様`, "weight": "bold", "align": "center", "size": "md", "color": "#1e50a2" },
       { "type": "text", "text": `時間: ${orderData.pickupTime}`, "weight": "bold", "align": "center", "size": "xl", "margin": "sm", "color": "#E64A19" },
       { "type": "separator", "margin": "md" },
       ...items,
@@ -776,7 +780,11 @@ async function sendThanksMessage(orderData) {
             "body": { "type": "box", "layout": "vertical", "contents": contents }
         }
     }]);
-  } catch (e) { console.log('LINE Msg Error', e); }
+  } catch (e) { 
+    console.error('LINE Msg Error', e);
+    // ユーザーにエラー内容を通知（デバッグ用）
+    showCustomAlert('通知エラー', 'LINEへのメッセージ送信に失敗しました。\n注文自体は完了しています。\nエラー: ' + (e.message || e));
+  }
 }
 
 function showCustomAlert(title, msg, cb) {
