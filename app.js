@@ -241,112 +241,114 @@ function displayMenu() {
 function showItemDetailModal(group) {
     currentModalItem = group;
 
-    dom.itemDetailName.textContent = group.name;
-    dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
-    dom.itemDetailDescription.textContent = group.description || '';
-    dom.itemDetailQuantity.textContent = '1';
+    try {
+        dom.itemDetailName.textContent = group.name;
+        dom.itemDetailImg.src = group.imageUrl || 'https://placehold.co/300x200/eee/ccc?text=No+Image';
+        dom.itemDetailDescription.textContent = group.description || '';
+        dom.itemDetailQuantity.textContent = '1';
 
-    // 1. オプション（サイズ・個数）生成
-    dom.itemDetailOptions.innerHTML = '';
-    if (group.options && group.options.length > 0) {
-        group.options.forEach((opt, index) => {
-            // SKUがない場合の安全策
-            const safeSku = opt.sku || `opt-${index}`;
-            
-            const label = document.createElement('div'); // divに変更して制御しやすくする
-            label.className = 'option-label';
-            if(index === 0) label.classList.add('selected');
-            
-            // HTML構造: クリック判定を確実にするため
-            label.innerHTML = `
-                <div style="display:flex; flex-direction:column;">
-                    <span class="option-name">${opt.name}</span>
-                    <span class="option-price">¥${opt.price.toLocaleString()}</span>
-                </div>
-                <div class="option-check-mark"></div>
-                <input type="radio" name="price-option" value="${safeSku}" 
-                       data-name="${opt.name}" data-price="${opt.price}" 
-                       ${index === 0 ? 'checked' : ''}>
-            `;
-            
-            // クリックイベントをDIV全体に設定
-            label.addEventListener('click', () => {
-                // ラジオボタンを選択状態にする
-                const input = label.querySelector('input');
-                input.checked = true;
+        // 1. オプション（サイズ・個数）生成
+        dom.itemDetailOptions.innerHTML = '';
+        if (group.options && group.options.length > 0) {
+            group.options.forEach((opt, index) => {
+                // SKUがない場合の安全策
+                const safeSku = opt.sku || `opt-${index}`;
                 
-                // スタイル更新
-                handleOptionChange(group, safeSku);
-                calculateDetailTotal();
-                updateSelectionStyles(dom.itemDetailOptions, 'radio');
+                const label = document.createElement('div'); // divに変更して制御しやすくする
+                label.className = 'option-label';
+                if(index === 0) label.classList.add('selected');
+                
+                // HTML構造: クリック判定を確実にするため
+                label.innerHTML = `
+                    <div style="display:flex; flex-direction:column;">
+                        <span class="option-name">${opt.name}</span>
+                        <span class="option-price">¥${opt.price.toLocaleString()}</span>
+                    </div>
+                    <div class="option-check-mark"></div>
+                    <input type="radio" name="price-option" value="${safeSku}" 
+                           data-name="${opt.name}" data-price="${opt.price}" 
+                           ${index === 0 ? 'checked' : ''}>
+                `;
+                
+                // クリックイベントをDIV全体に設定
+                label.addEventListener('click', (e) => {
+                    e.preventDefault(); // デフォルト動作（ダブル発火など）を防ぐ
+                    const input = label.querySelector('input');
+                    input.checked = true;
+                    
+                    // スタイル更新
+                    handleOptionChange(group, safeSku);
+                    calculateDetailTotal();
+                    updateSelectionStyles(dom.itemDetailOptions, 'radio');
+                });
+
+                dom.itemDetailOptions.appendChild(label);
             });
+        } else {
+            dom.itemDetailOptions.innerHTML = '<p style="color:red">オプション設定がありません</p>';
+        }
 
-            dom.itemDetailOptions.appendChild(label);
-        });
-    } else {
-        dom.itemDetailOptions.innerHTML = '<p style="color:red">オプション設定がありません</p>';
-    }
-
-    // 2. フレーバー生成
-    dom.itemDetailFlavors.innerHTML = '';
-    if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
-        dom.sectionFlavors.style.display = 'block';
-        
-        // SKUに基づいて初期状態（ラジオorチェック）を判定
-        // 初期状態は1つ目のオプションに基づく
-        const initialSku = group.options && group.options[0] ? group.options[0].sku : '';
-        const isLarge = String(initialSku).includes('16'); 
-        
-        renderFlavors(group, isLarge);
-
-    } else {
-        dom.sectionFlavors.style.display = 'none';
-    }
-
-    // 3. トッピング生成
-    dom.itemDetailToppings.innerHTML = '';
-    const toppings = group.toppings || [];
-    const topSection = document.getElementById('section-toppings');
-    
-    if (toppings.length === 0) {
-        if (topSection) topSection.style.display = 'none';
-    } else {
-        if (topSection) topSection.style.display = 'block';
-        toppings.forEach((top, idx) => {
-            const label = document.createElement('div');
-            label.className = 'option-label';
+        // 2. フレーバー生成
+        dom.itemDetailFlavors.innerHTML = '';
+        if (group.flavors && group.flavors.length > 0 && group.flavors[0] !== "") {
+            dom.sectionFlavors.style.display = 'block';
             
-            const priceText = top.price > 0 ? `+¥${top.price}` : '無料';
+            // SKUに基づいて初期状態（ラジオorチェック）を判定
+            const initialSku = group.options && group.options[0] ? group.options[0].sku : '';
+            const isLarge = String(initialSku).includes('16'); 
             
-            label.innerHTML = `
-                <div>
-                    <span>${top.name}</span>
-                    <span style="color:#E64A19; font-weight:bold; margin-left:8px;">${priceText}</span>
-                </div>
-                <div class="option-check-mark"></div>
-                <input type="checkbox" name="topping-option" value="${top.id}" data-name="${top.name}" data-price="${top.price}">
-            `;
+            renderFlavors(group, isLarge);
 
-            label.addEventListener('click', (e) => {
-                // 通常のクリック動作をエミュレート（トグル）
-                const input = label.querySelector('input');
-                // 直押しでなければ反転
-                if(e.target !== input) {
-                    input.checked = !input.checked;
-                }
-                calculateDetailTotal();
-                updateSelectionStyles(dom.itemDetailToppings, 'checkbox');
+        } else {
+            dom.sectionFlavors.style.display = 'none';
+        }
+
+        // 3. トッピング生成
+        dom.itemDetailToppings.innerHTML = '';
+        const toppings = group.toppings || [];
+        const topSection = document.getElementById('section-toppings');
+        
+        if (toppings.length === 0) {
+            if (topSection) topSection.style.display = 'none';
+        } else {
+            if (topSection) topSection.style.display = 'block';
+            toppings.forEach((top, idx) => {
+                const label = document.createElement('div');
+                label.className = 'option-label';
+                
+                const priceText = top.price > 0 ? `+¥${top.price}` : '無料';
+                
+                label.innerHTML = `
+                    <div>
+                        <span>${top.name}</span>
+                        <span style="color:#E64A19; font-weight:bold; margin-left:8px;">${priceText}</span>
+                    </div>
+                    <div class="option-check-mark"></div>
+                    <input type="checkbox" name="topping-option" value="${top.id}" data-name="${top.name}" data-price="${top.price}">
+                `;
+
+                label.addEventListener('click', (e) => {
+                    e.preventDefault(); // デフォルト動作を防ぎ、完全にJSで制御する
+                    const input = label.querySelector('input');
+                    input.checked = !input.checked; // トグル
+                    
+                    calculateDetailTotal();
+                    updateSelectionStyles(dom.itemDetailToppings, 'checkbox');
+                });
+
+                dom.itemDetailToppings.appendChild(label);
             });
+        }
 
-            dom.itemDetailToppings.appendChild(label);
-        });
+        // 初期計算
+        calculateDetailTotal();
+
+        // モーダル表示
+        dom.itemDetailModal.classList.add('visible');
+    } catch (e) {
+        console.error(e);
+        showCustomAlert('エラー', '商品詳細の表示に失敗しました。');
     }
-
-    // 初期計算
-    calculateDetailTotal();
-
-    // モーダル表示
-    dom.itemDetailModal.classList.add('visible');
 }
 
 // フレーバーのレンダリング（単一選択/複数選択 切り替え対応）
@@ -375,15 +377,22 @@ function renderFlavors(group, isMultiSelect) {
         `;
         
         label.addEventListener('click', (e) => {
+            e.preventDefault(); // デフォルト動作を防ぐ
             const input = label.querySelector('input');
             
             if (type === 'radio') {
                 input.checked = true;
-                // ラジオは他をオフにする処理がupdateSelectionStylesで必要だが、
-                // name属性が同じならブラウザがやる。ただしcustom UI更新が必要。
+                // ラジオの場合、他の同名inputはブラウザが自動でoffにしないので（pointer-events:none等の影響で）、
+                // updateSelectionStylesでスタイルを消すだけでなく、checked属性も管理する必要があるが、
+                // DOM上のradioボタンはname属性が同じなら排他制御されるはず。
+                // ただし e.preventDefault() しているので、自分で排他制御するか、ラジオのチェックをつける必要がある。
+                // input.checked = true だけでは他のラジオが消えない場合があるため、明示的にクリア
+                const radios = dom.itemDetailFlavors.querySelectorAll(`input[name="${name}"]`);
+                radios.forEach(r => { if(r !== input) r.checked = false; });
+
             } else {
                 // チェックボックス
-                if(e.target !== input) input.checked = !input.checked;
+                input.checked = !input.checked;
                 
                 // 制限チェック (2つまで)
                 const checkedCount = dom.itemDetailFlavors.querySelectorAll('input:checked').length;
@@ -410,8 +419,6 @@ function handleOptionChange(group, sku) {
     const isLargePortion = skuStr.includes('16'); 
     
     // 現在の選択状況を取得して再レンダリング
-    // ※ ユーザーが選択済みの場合、それを維持するかリセットするかの判断が必要だが、
-    //   シンプルにするため切り替え時はリセットする。
     renderFlavors(group, isLargePortion);
 }
 
@@ -472,6 +479,7 @@ function handleAddToCartClick() {
         name: currentModalItem.name,
         sku: opt.value,
         optionName: opt.dataset.name,
+        option: opt.dataset.name, // ★追加: バックエンド連携用
         basePrice: parseInt(opt.dataset.price, 10),
         flavors: flavors,
         toppings: toppings,
