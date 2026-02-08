@@ -129,7 +129,7 @@ body {
   font-weight: bold; cursor: pointer; 
   box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
 }
-.view-cart-button:disabled { background-color: #ddd; box-shadow: none; opacity: 1; color: #999; }
+.view-cart-button:disabled { background-color: #ccc; box-shadow: none; opacity: 1; color: #999; }
 .total-price-display { font-size: 1.1rem; font-weight: bold; color: var(--brand-blue); }
 
 /* モーダル */
@@ -246,12 +246,18 @@ body {
 
 /* フォーム要素 */
 .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; color: #555; }
+
+/* ★変更: inputにもスタイルを適用 */
+.form-group input, 
 .form-group select, 
 .form-group textarea {
     width: 100%; padding: 0.9rem; border-radius: 10px; border: 1px solid #ddd; 
     font-size: 1rem; background: white; font-family: inherit;
     resize: vertical;
 }
+
+/* ★変更: focus時のスタイルもinputに適用 */
+.form-group input:focus,
 .form-group select:focus, 
 .form-group textarea:focus {
     outline: none; border-color: var(--brand-blue);
