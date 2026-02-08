@@ -1,6 +1,5 @@
 /* style.css - 粉もんスタンドおしん テーマ (Instagram Ver.) */
 
-/* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
 :root {
@@ -21,7 +20,7 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   padding-bottom: 90px;
-  -webkit-font-smoothing: antialiased; /* 文字の表示を滑らかに */
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ローディング */
@@ -29,7 +28,7 @@ body {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background-color: rgba(250, 249, 246, 0.95);
   display: flex; flex-direction: column; justify-content: center;
-  align-items: center; z-index: 2000; /* 最前面に */
+  align-items: center; z-index: 2000;
 }
 .spinner {
   border: 4px solid rgba(30, 80, 162, 0.1); width: 40px; height: 40px;
@@ -45,17 +44,12 @@ body {
   text-align: center; position: sticky; top: 0; z-index: 100;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
-.app-header h1 { 
-    font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em;
-}
+.app-header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em; }
 
 /* メイン */
 #app-main { padding: 1rem; }
 .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-
-@media (min-width: 600px) {
-    .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-}
+@media (min-width: 600px) { .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
 
 /* カテゴリナビ */
 .category-nav {
@@ -63,7 +57,6 @@ body {
     scrollbar-width: none;
 }
 .category-nav::-webkit-scrollbar { display: none; }
-
 .category-nav a {
     white-space: nowrap; padding: 8px 16px; background: white; 
     border-radius: 20px; text-decoration: none; 
@@ -76,34 +69,23 @@ body {
 .category-title { 
     grid-column: 1 / -1; margin-top: 1.5rem; margin-bottom: 0.8rem; 
     color: var(--brand-blue); border-left: 6px solid var(--food-orange);
-    padding-left: 10px; font-size: 1.1rem;
-    
-    /* 重なり順の調整: カードより後ろに */
-    position: relative;
-    z-index: 1;
+    padding-left: 10px; font-size: 1.1rem; position: relative; z-index: 1;
 }
 
-/* ★修正: メニューカードのタップ判定強化 */
+/* メニューカード */
 .menu-item-card {
   background-color: var(--card-bg-color); border-radius: 16px; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden;
   cursor: pointer; transition: transform 0.1s;
   display: flex; flex-direction: column;
-  
-  /* タップ判定を確実にするための設定 */
-  position: relative;
-  z-index: 10; /* 他の要素より前面に */
-  isolation: isolate; /* 重なりコンテキストを分離 */
-  touch-action: manipulation; /* ダブルタップズームを無効化して反応速度向上 */
-  -webkit-tap-highlight-color: rgba(0,0,0,0.05);
+  position: relative; z-index: 10; isolation: isolate;
+  touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.05);
 }
 .menu-item-card:active { transform: scale(0.98); }
-.menu-item-card img { width: 100%; height: 130px; object-fit: cover; pointer-events: none; /* 画像へのクリックを透過してカードに伝える */ }
-.item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; /* テキストへのクリックを透過 */ }
+.menu-item-card img { width: 100%; height: 130px; object-fit: cover; pointer-events: none; }
+.item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
 .item-name { font-weight: bold; margin-bottom: 0.4rem; font-size: 0.95rem; line-height: 1.4; color: var(--text-color); }
-.item-price { 
-    color: var(--food-orange); font-weight: bold; font-size: 1.05rem; text-align: right; 
-}
+.item-price { color: var(--food-orange); font-weight: bold; font-size: 1.05rem; text-align: right; }
 
 /* フッター */
 .cart-footer {
@@ -116,8 +98,7 @@ body {
 .view-cart-button {
   background-color: var(--food-orange); color: white; border: none;
   border-radius: 50px; padding: 0.9rem 1.8rem; font-size: 1rem;
-  font-weight: bold; cursor: pointer; 
-  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
+  font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
 }
 .view-cart-button:disabled { background-color: #ddd; box-shadow: none; opacity: 1; color: #999; }
 .total-price-display { font-size: 1.1rem; font-weight: bold; color: var(--brand-blue); }
@@ -148,66 +129,43 @@ body {
 .close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #ccc; cursor: pointer; }
 .modal-footer { 
   padding: 1rem 1.5rem; border-top: 1px solid #f5f5f5; background-color: #fff; 
-  padding-bottom: max(1rem, env(safe-area-inset-bottom)); /* iPhone X以降の下部余白対応 */
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 /* 詳細モーダル内 */
-.item-detail-body { 
-    padding: 1rem 1.5rem; overflow-y: auto; flex-grow: 1; 
-    -webkit-overflow-scrolling: touch; /* スクロール慣性 */
-}
+.item-detail-body { padding: 1rem 1.5rem; overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
 .item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 1rem; }
 #item-detail-description { margin-bottom: 1.5rem; color: #666; font-size: 0.9rem; line-height: 1.6; }
 
 .option-section { margin-bottom: 1.5rem; }
-.option-section h3 { 
-    font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px; 
-    color: var(--brand-blue);
-}
+.option-section h3 { font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px; color: var(--brand-blue); }
 .flavor-note { font-size: 0.85rem; color: var(--food-orange); margin-bottom: 0.5rem; }
 
-/* バッジ */
-.badge-required, .badge-optional {
-    font-size: 0.7rem; padding: 3px 8px; border-radius: 12px; color: white; font-weight: normal;
-}
+.badge-required, .badge-optional { font-size: 0.7rem; padding: 3px 8px; border-radius: 12px; color: white; font-weight: normal; }
 .badge-required { background-color: var(--food-orange); }
 .badge-optional { background-color: #aaa; }
 
-/* ★修正: 選択肢（ラベル）のタップ判定強化 */
+/* 選択肢（ラベル） */
 .option-label {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1rem; /* タップ領域拡大 */
-  border: 1px solid var(--border-color);
+  padding: 1rem; border: 1px solid var(--border-color);
   border-radius: 12px; margin-bottom: 0.6rem; cursor: pointer;
-  background: white; transition: all 0.1s;
-  position: relative; /* 確実に前面に */
-  z-index: 1;
+  background: white; transition: all 0.1s; position: relative; z-index: 1;
 }
-
-/* JSで付与する .selected クラスでスタイル適用 */
 .option-label.selected {
-  border-color: var(--brand-blue);
-  background-color: #eef4fc;
-  color: var(--brand-blue); font-weight: bold;
-}
-/* 元の :has も残す */
-.option-label:has(input:checked) {
   border-color: var(--brand-blue); background-color: #eef4fc; color: var(--brand-blue); font-weight: bold;
 }
-
 .option-label input { display: none; }
 .option-label.selected .option-price { color: var(--food-orange); }
 
 /* 数量セレクタ */
 .quantity-selector {
     display: flex; justify-content: space-between; align-items: center;
-    background: #fcfcfc; padding: 1rem; border-radius: 12px; margin-top: 1rem;
-    border: 1px solid #eee;
+    background: #fcfcfc; padding: 1rem; border-radius: 12px; margin-top: 1rem; border: 1px solid #eee;
 }
 .quantity-btn {
   width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd;
-  background-color: white; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
-  color: var(--brand-blue);
+  background-color: white; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; color: var(--brand-blue);
 }
 .quantity-display { font-size: 1.3rem; font-weight: bold; min-width: 40px; text-align: center; color: var(--text-color); }
 
@@ -215,64 +173,46 @@ body {
 .modal-price-preview { text-align: right; margin-bottom: 0.5rem; font-weight: bold; font-size: 1.2rem; color: var(--brand-blue); }
 
 /* カート */
-.cart-items-container {
-    padding: 1rem 1.5rem;
-    overflow-y: auto; flex-grow: 1;
-}
+.cart-items-container { padding: 1rem 1.5rem; overflow-y: auto; flex-grow: 1; }
 
-/* カートアイテムを見やすく */
 .cart-item {
-    padding: 1rem; 
-    margin-bottom: 10px;
-    border: 1px solid #eee; 
-    border-radius: 10px;
-    background: #fff;
-    display: flex; justify-content: space-between;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    padding: 1rem; margin-bottom: 10px; border: 1px solid #eee; 
+    border-radius: 10px; background: #fff;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
 }
 .cart-item-details { flex: 1; padding-right: 1rem; }
-.cart-item-name { font-weight: bold; font-size: 1rem; color: var(--brand-blue); margin-bottom: 4px; }
-.cart-item-meta { font-size: 0.9rem; color: #555; margin-bottom: 4px; }
-.cart-item-toppings { font-size: 0.85rem; margin-bottom: 6px; }
-.cart-item-price { font-weight: bold; font-size: 1.05rem; color: #333; }
-.cart-item-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
-.quantity-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.remove-item-btn { margin-top: 0; color: #999; font-size: 0.8rem; padding: 4px 8px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
+.cart-item-name { font-weight: bold; font-size: 1rem; color: var(--brand-blue); margin-bottom: 6px; }
+.cart-item-option { font-size: 0.95rem; font-weight: bold; color: #333; margin-bottom: 4px; }
+.cart-item-flavor { font-size: 0.85rem; color: #555; background: #f5f5f5; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; }
+.cart-item-toppings { font-size: 0.85rem; color: #e64a19; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.cart-item-toppings span { background: #fff3e0; padding: 2px 6px; border-radius: 4px; }
+.cart-item-price { font-weight: bold; font-size: 1rem; color: #333; margin-top: 4px; }
+
+.cart-item-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; height: 100%; min-height: 80px; }
+.quantity-display { font-size: 1.1rem; font-weight: bold; color: #333; }
+.subtotal { font-weight: bold; color: var(--food-orange); margin-bottom: 8px; }
+.remove-item-btn { 
+    color: #999; font-size: 0.8rem; padding: 6px 12px; 
+    border: 1px solid #eee; border-radius: 20px; background: #fff; 
+}
 
 /* カートオプション設定エリア */
-.order-options-container {
-    padding: 1rem 1.5rem;
-    background-color: #fafafa;
-    border-top: 1px solid #f0f0f0;
-}
-.order-options-container h3 {
-    font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px;
-    color: var(--brand-blue);
-}
+.order-options-container { padding: 1rem 1.5rem; background-color: #fafafa; border-top: 1px solid #f0f0f0; }
+.order-options-container h3 { font-size: 1rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 8px; color: var(--brand-blue); }
 
 /* フォーム要素 */
 .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; color: #555; }
-
-.form-group input, 
-.form-group select, 
-.form-group textarea {
+.form-group input, .form-group select, .form-group textarea {
     width: 100%; padding: 0.9rem; border-radius: 10px; border: 1px solid #ddd; 
-    font-size: 1rem; background: white; font-family: inherit;
-    resize: vertical;
+    font-size: 1rem; background: white; font-family: inherit; resize: vertical;
 }
-
-.form-group input:focus,
-.form-group select:focus, 
-.form-group textarea:focus {
-    outline: none; border-color: var(--brand-blue);
-}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--brand-blue); }
 
 .submit-button {
-  width: 100%; background-color: var(--food-orange); color: white;
-  border: none; padding: 1rem; border-radius: 50px;
-  font-size: 1.1rem; font-weight: bold; cursor: pointer;
-  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
-  transition: transform 0.1s;
+  width: 100%; background-color: var(--food-orange); color: white; border: none; 
+  padding: 1rem; border-radius: 50px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+  box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3); transition: transform 0.1s;
 }
 .submit-button:active { transform: scale(0.98); }
 .submit-button:disabled { background-color: #ccc; box-shadow: none; }
