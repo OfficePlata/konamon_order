@@ -6,7 +6,6 @@ const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9
 let menuData = [];
 let cart = [];
 let userProfile = null;
-// 初期設定（通信完了までのデフォルト値）
 let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 5 }; 
 let currentModalItem = null;
 
@@ -26,17 +25,23 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 async function initializeApp() {
   setupDOM(); 
   
-  // ローディング表示
   if(dom.loading) dom.loading.style.display = 'flex';
 
   try {
-    // LIFF初期化（IDが設定されている場合のみ）
     if (LIFF_ID) {
         await liff.init({ liffId: LIFF_ID }).catch(e => console.warn('LIFF Init failed', e));
-        if (liff.isLoggedIn()) {
-            userProfile = await liff.getProfile().catch(()=>null);
+        
+        // LINEアプリ内チェック
+        if (!liff.isInClient()) {
+             console.log("外部ブラウザで起動中");
+        }
+
+        // ログイン処理（参照コードに合わせる）
+        if (!liff.isLoggedIn()) {
+            liff.login();
+            return;
         } else {
-            // 自動ログインさせたい場合はここで liff.login();
+            userProfile = await liff.getProfile().catch(()=>null);
         }
     }
     
@@ -53,17 +58,14 @@ async function initializeApp() {
 }
 
 function setupDOM() {
-    // Main
     dom.loading = document.getElementById('loading');
     dom.menuContainer = document.getElementById('menu-container');
     dom.categoryNav = document.getElementById('category-nav');
     
-    // Footer Cart
     dom.viewCartButton = document.getElementById('view-cart-button');
     dom.cartItemCount = document.getElementById('cart-item-count');
     dom.cartTotalPrice = document.getElementById('cart-total-price');
     
-    // Cart Modal
     dom.cartModal = document.getElementById('cart-modal');
     dom.closeCartModal = document.getElementById('close-cart-modal');
     dom.submitOrderButton = document.getElementById('submit-order-button');
@@ -73,7 +75,6 @@ function setupDOM() {
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
     
-    // Item Detail Modal
     dom.itemDetailModal = document.getElementById('item-detail-modal');
     dom.closeItemDetailModal = document.getElementById('close-item-detail-modal');
     dom.itemDetailName = document.getElementById('item-detail-name');
@@ -92,7 +93,6 @@ function setupDOM() {
     dom.itemDetailTotalPreview = document.getElementById('item-detail-total-preview');
     dom.addToCartButton = document.getElementById('add-to-cart-button');
     
-    // Alert
     dom.customAlertModal = document.getElementById('custom-alert-modal');
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
@@ -100,7 +100,6 @@ function setupDOM() {
 }
 
 function setupEventListeners() {
-    // Modal Toggles
     if(dom.viewCartButton) dom.viewCartButton.addEventListener('click', openCartModal);
     if(dom.closeCartModal) dom.closeCartModal.addEventListener('click', closeCartModal);
     if(dom.cartModal) dom.cartModal.addEventListener('click', (e) => { if (e.target === dom.cartModal) closeCartModal(); });
@@ -108,10 +107,8 @@ function setupEventListeners() {
     if(dom.closeItemDetailModal) dom.closeItemDetailModal.addEventListener('click', closeItemDetailModal);
     if(dom.itemDetailModal) dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
 
-    // Order Submit
     if(dom.submitOrderButton) dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
 
-    // Quantity Logic
     if(dom.itemDetailDecrease) {
         dom.itemDetailDecrease.addEventListener('click', () => {
             let q = parseInt(dom.itemDetailQuantity.textContent, 10);
@@ -124,14 +121,13 @@ function setupEventListeners() {
     if(dom.itemDetailIncrease) {
         dom.itemDetailIncrease.addEventListener('click', () => {
             let q = parseInt(dom.itemDetailQuantity.textContent, 10);
-            if (q < 50) { // Limit max
+            if (q < 50) { 
                 dom.itemDetailQuantity.textContent = q + 1;
                 calculateDetailTotal();
             }
         });
     }
 
-    // Add to Cart
     if(dom.addToCartButton) dom.addToCartButton.addEventListener('click', handleAddToCartClick);
 }
 
@@ -144,7 +140,6 @@ async function fetchInitialData() {
         
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
-            // バックエンドからの設定値があれば上書き保存
             if (data.settings) {
                 storeSettings = { ...storeSettings, ...data.settings };
             }
@@ -156,7 +151,6 @@ async function fetchInitialData() {
         console.error(err);
         menuData = FALLBACK_MENU_DATA;
         displayMenu();
-        // 初回のみアラートを出す
         showCustomAlert("通信エラー", "メニュー情報を取得できませんでした。\n通信環境を確認してください。");
     }
 }
@@ -170,12 +164,9 @@ function displayMenu() {
       return;
   }
 
-  // 有効なアイテムのみ
   const validItems = menuData.filter(item => item && item.category);
-  // カテゴリ抽出
   const categories = [...new Set(validItems.map(item => item.category))];
   
-  // ナビ生成
   categories.forEach((cat, idx) => {
       const a = document.createElement('a');
       a.href = `#cat-${cat}`;
@@ -184,7 +175,6 @@ function displayMenu() {
           e.preventDefault();
           const target = document.getElementById(`cat-${cat}`);
           if (target) {
-              // ヘッダー + ナビ分のオフセット
               const offset = 120; 
               const bodyRect = document.body.getBoundingClientRect().top;
               const elementRect = target.getBoundingClientRect().top;
@@ -192,7 +182,6 @@ function displayMenu() {
               const offsetPosition = elementPosition - offset;
               window.scrollTo({ top: offsetPosition, behavior: "smooth" });
           }
-          // Active styling
           document.querySelectorAll('.category-nav a').forEach(el => el.classList.remove('active'));
           a.classList.add('active');
       };
@@ -200,7 +189,6 @@ function displayMenu() {
       dom.categoryNav.appendChild(a);
   });
 
-  // 商品リスト生成
   categories.forEach(category => {
       const header = document.createElement('div');
       header.className = 'category-title';
@@ -213,7 +201,6 @@ function displayMenu() {
         const card = document.createElement('div');
         card.className = 'menu-item-card';
         
-        // 価格表示ロジック
         let priceText = 'ー';
         if (group.options && group.options.length > 0) {
             const prices = group.options.map(o => o.price).filter(p => !isNaN(p));
@@ -232,7 +219,6 @@ function displayMenu() {
                 <p class="item-price">${priceText}</p>
             </div>
         `;
-        // イベントリスナー
         card.addEventListener('click', () => showItemDetailModal(group));
         dom.menuContainer.appendChild(card);
       });
@@ -250,12 +236,10 @@ function showItemDetailModal(group) {
         dom.itemDetailDescription.textContent = group.description || '';
         dom.itemDetailQuantity.textContent = '1';
 
-        // ★安全策: バックエンドからのデータがまだ文字列のままの場合、ここで配列に直す
         if (typeof group.flavors === 'string') {
             group.flavors = group.flavors.replace(/、/g, ',').split(',').map(s => s.trim()).filter(s => s);
         }
 
-        // 1. オプション（サイズ・個数）生成
         dom.itemDetailOptions.innerHTML = '';
         if (group.options && group.options.length > 0) {
             group.options.forEach((opt, index) => {
@@ -292,7 +276,6 @@ function showItemDetailModal(group) {
             dom.itemDetailOptions.innerHTML = '<p style="color:red">オプション設定がありません</p>';
         }
 
-        // 2. フレーバー生成
         dom.itemDetailFlavors.innerHTML = '';
         if (group.flavors && Array.isArray(group.flavors) && group.flavors.length > 0) {
             dom.sectionFlavors.style.display = 'block';
@@ -305,7 +288,6 @@ function showItemDetailModal(group) {
             dom.sectionFlavors.style.display = 'none';
         }
 
-        // 3. トッピング生成
         dom.itemDetailToppings.innerHTML = '';
         const toppings = group.toppings || [];
         const topSection = document.getElementById('section-toppings');
@@ -350,7 +332,6 @@ function showItemDetailModal(group) {
     }
 }
 
-// フレーバーのレンダリング（単一選択/複数選択 切り替え対応）
 function renderFlavors(group, isMultiSelect) {
     dom.itemDetailFlavors.innerHTML = '';
     
@@ -419,11 +400,9 @@ function updateSelectionStyles(container, type) {
 }
 
 function calculateDetailTotal() {
-    // オプション価格
     const optInput = dom.itemDetailOptions.querySelector('input:checked');
     const basePrice = optInput ? parseInt(optInput.dataset.price, 10) : 0;
     
-    // トッピング価格
     let toppingPrice = 0;
     dom.itemDetailToppings.querySelectorAll('input:checked').forEach(el => {
         toppingPrice += parseInt(el.dataset.price, 10);
@@ -438,11 +417,9 @@ function calculateDetailTotal() {
 function handleAddToCartClick() {
     if (!currentModalItem) return;
 
-    // 必須チェック
     const opt = dom.itemDetailOptions.querySelector('input:checked');
     if (!opt) { showCustomAlert('未選択', 'サイズまたは個数を選択してください'); return; }
 
-    // フレーバーチェック
     let flavors = [];
     const flavorInputs = dom.itemDetailFlavors.querySelectorAll('input');
     if (flavorInputs.length > 0) {
@@ -451,7 +428,6 @@ function handleAddToCartClick() {
         checked.forEach(el => flavors.push(el.value));
     }
 
-    // トッピング
     let toppings = [];
     dom.itemDetailToppings.querySelectorAll('input:checked').forEach(el => {
         toppings.push({ id: el.value, name: el.dataset.name, price: parseInt(el.dataset.price, 10) });
@@ -474,13 +450,11 @@ function handleAddToCartClick() {
     addToCart(newItem);
     closeItemDetailModal();
     
-    // フィードバック
     dom.viewCartButton.classList.add('bump');
     setTimeout(()=>dom.viewCartButton.classList.remove('bump'), 200);
 }
 
 function addToCart(newItem) {
-    // 同一商品の判定キー
     const genKey = (item) => {
         const fStr = (Array.isArray(item.flavors) ? item.flavors.sort() : []).join('|');
         const tStr = item.toppings.map(t=>t.id).sort().join('|');
@@ -520,7 +494,6 @@ function openCartModal() {
     renderCartItems();
     updatePickupTimeOptions();
     
-    // 合計金額更新
     const total = cart.reduce((s,i) => s + (i.unitPrice * i.quantity), 0);
     dom.cartModalTotalPrice.textContent = total.toLocaleString();
 
@@ -549,7 +522,6 @@ function renderCartItems() {
         const div = document.createElement('div');
         div.className = 'cart-item';
         
-        // オプション文字列
         let flavorStr = '';
         if (item.flavors && item.flavors.length > 0) {
             flavorStr = item.flavors.join(' / ');
@@ -592,14 +564,12 @@ function renderCartItems() {
     });
 }
 
-// グローバル関数（HTML内のonclickから呼ぶため）
 window.removeItem = (index) => {
     if(confirm('この商品をカートから削除しますか？')) {
         cart.splice(index, 1);
         updateCartView();
         renderCartItems();
         
-        // 合計再計算
         const total = cart.reduce((s,i) => s + (i.unitPrice * i.quantity), 0);
         dom.cartModalTotalPrice.textContent = total.toLocaleString();
         
@@ -607,25 +577,20 @@ window.removeItem = (index) => {
     }
 };
 
-// 時間オプション生成（シートの設定値を反映）
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
     select.innerHTML = '';
     
-    // 「最短で受け取る」オプション
     const opt = document.createElement('option');
     opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
     select.appendChild(opt);
 
     const now = new Date();
     
-    // シート設定値を優先、なければデフォルト
-    // ★ここでシートの値を反映させる（前回は固定値だった）
     const interval = parseInt(storeSettings.interval) || 5; 
     const prep = parseInt(storeSettings.prep) || 30;
 
-    // 時刻文字列解析（HH:mm形式、またはDate文字列内の時刻に対応）
     const extractTime = (str) => {
         if (!str) return null;
         const match = String(str).match(/(\d{1,2}):(\d{2})/);
@@ -639,25 +604,20 @@ function updatePickupTimeOptions() {
     const openDate = new Date(now); openDate.setHours(openTime.h, openTime.m, 0, 0);
     const closeDate = new Date(now); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
     
-    // 最短受取可能時刻（現在時刻 + 準備時間）
     let earliest = new Date(now.getTime() + prep * 60000);
     
-    // 開始時刻調整
     let t = (earliest > openDate) ? earliest : openDate;
     
-    // interval刻みに丸める（切り上げ）
     let m = t.getMinutes();
     let rem = m % interval;
     if(rem !== 0) t.setMinutes(m + (interval - rem));
     t.setSeconds(0); t.setMilliseconds(0);
 
-    // 選択肢生成ループ
     while (t <= closeDate) {
         const hh = t.getHours().toString().padStart(2, '0');
         const mm = t.getMinutes().toString().padStart(2, '0');
         const val = `${hh}:${mm}`;
         
-        // 過去の時間は表示しない（念のため）
         if (t > now) {
             const o = document.createElement('option');
             o.value = val; o.textContent = `${val} 頃`;
@@ -668,7 +628,6 @@ function updatePickupTimeOptions() {
     }
 }
 
-// 注文送信
 async function confirmAndSubmitOrder() {
     dom.submitOrderButton.disabled = true;
     const originalText = dom.submitOrderButton.textContent;
@@ -699,14 +658,13 @@ async function confirmAndSubmitOrder() {
     };
 
     try {
-        // Google Apps Scriptへ送信
         await fetch(BACKEND_URL, {
             method: 'POST', mode: 'no-cors',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(orderData)
         });
         
-        // LINEメッセージ送信
+        // ★重要: メッセージ送信（エラーは内部でログ出力のみ）
         await sendThanksMessage(orderData);
         
         showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！', () => {
@@ -714,7 +672,6 @@ async function confirmAndSubmitOrder() {
             else location.reload();
         });
         
-        // カートクリア
         cart = [];
         updateCartView();
         closeCartModal();
@@ -726,75 +683,75 @@ async function confirmAndSubmitOrder() {
     }
 }
 
+// ★参考にいただいたapp.jsのロジックを移植（メッセージ送信）
 async function sendThanksMessage(orderData) {
-  // 1. LIFFクライアント外チェック
-  if (!liff.isInClient()) {
-    showCustomAlert('通知スキップ', 'LINEアプリ外のため、完了メッセージは送信されません。\n（注文は正常に完了しています）');
-    return;
-  }
-
-  // 2. コンテキストチェック (送信先特定不能な場合)
-  const context = liff.getContext();
-  if (context && context.type === 'none') {
-     showCustomAlert('通知スキップ', 'トークルームが特定できないため、完了メッセージは送信されません。\n（注文は正常に完了しています）');
-     return;
-  }
-  
-  // Flex Message生成
-  const items = orderData.cart.map(item => {
-      let desc = item.optionName || '';
-      if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
-      if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name || '').join(',')}`;
-      
-      // ★修正: descが空文字だとエラーになるため、スペースを入れる
-      if (!desc) desc = ' ';
-
-      return {
-          "type": "box", "layout": "vertical", "margin": "md",
-          "contents": [
-              { "type": "box", "layout": "horizontal", "contents": [
-                  { "type": "text", "text": item.name || '商品', "weight": "bold", "flex": 3, "wrap": true },
-                  { "type": "text", "text": `x${item.quantity}`, "align": "end", "flex": 1 }
-              ]},
-              { "type": "text", "text": desc, "size": "xs", "color": "#888888", "wrap": true }
-          ]
-      };
-  });
-
-  const contents = [
-      { "type": "text", "text": `受取人: ${orderData.recipientName || 'ゲスト'} 様`, "weight": "bold", "align": "center", "size": "md", "color": "#1e50a2" },
-      { "type": "text", "text": `時間: ${orderData.pickupTime}`, "weight": "bold", "align": "center", "size": "xl", "margin": "sm", "color": "#E64A19" },
-      { "type": "separator", "margin": "md" },
-      ...items,
-      { "type": "separator", "margin": "lg" },
-      { "type": "box", "layout": "horizontal", "contents": [
-          { "type": "text", "text": "合計金額", "weight": "bold" },
-          { "type": "text", "text": `¥${orderData.totalPrice.toLocaleString()}`, "weight": "bold", "align": "end", "color": "#E64A19", "size": "lg" }
-      ], "margin": "md"}
-  ];
-  
-  if(orderData.notes) {
-      contents.push({ "type": "separator", "margin": "md" });
-      contents.push({ "type": "text", "text": `備考: ${orderData.notes}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
-  }
-
+  if (!liff.isInClient()) return;
+  const flexMessage = createReceiptFlexMessage(orderData);
   try {
-    await liff.sendMessages([{
-        "type": "flex", "altText": "ご注文ありがとうございます",
-        "contents": {
-            "type": "bubble",
+    await liff.sendMessages([flexMessage]);
+  } catch (err) {
+    console.error('メッセージの送信に失敗しました:', err);
+  }
+}
+
+// ★参考にいただいたapp.jsのロジックを移植（Flex Message生成）
+function createReceiptFlexMessage(orderData) {
+    // データ整形
+    const safeTotalPrice = Number(orderData.totalPrice).toLocaleString();
+    const safeRecipient = String(orderData.recipientName || 'お客様');
+    const safeTime = String(orderData.pickupTime || 'ー');
+
+    const itemDetails = orderData.cart.map(item => {
+        let desc = item.optionName ? String(item.optionName) : '';
+        if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
+        if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name).join(',')}`;
+        if (!desc) desc = ' '; // 空文字対策
+
+        return {
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                { "type": "text", "text": `${item.name}`, "wrap": true, "flex": 3, "weight": "bold" },
+                { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
+            ]
+        };
+    });
+
+    const bodyContents = [
+        { "type": "text", "text": "ご注文内容", "size": "xs", "color": "#aaaaaa" },
+        { "type": "separator", "margin": "md" },
+        // 商品詳細
+        ...itemDetails,
+        // セパレータ
+        { "type": "separator", "margin": "lg" },
+        // 受取情報
+        { "type": "box", "layout": "vertical", "margin": "md", "contents": [
+             { "type": "text", "text": "受取情報", "size": "xs", "color": "#aaaaaa" },
+             { "type": "text", "text": `受取人: ${safeRecipient} 様`, "size": "sm", "margin": "sm" },
+             { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
+        ]},
+        // 合計
+        { "type": "separator", "margin": "lg" },
+        { "type": "box", "layout": "horizontal", "contents": [
+            { "type": "text", "text": "合計金額", "weight": "bold" },
+            { "type": "text", "text": `¥${safeTotalPrice}`, "weight": "bold", "align": "end" }
+        ], "margin": "md"}
+    ];
+
+    // 備考がある場合
+    if (orderData.notes) {
+        bodyContents.push({ "type": "separator", "margin": "md" });
+        bodyContents.push({ "type": "text", "text": `備考: ${orderData.notes}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
+    }
+
+    return { "type": "flex", "altText": "ご注文ありがとうございます", "contents": { "type": "bubble",
             "header": { "type": "box", "layout": "vertical", "contents": [
                 { "type": "text", "text": "粉もんスタンド おしん", "weight": "bold", "color": "#ffffff" },
-                { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "sm" }
-            ], "backgroundColor": "#1e50a2" },
-            "body": { "type": "box", "layout": "vertical", "contents": contents }
-        }
-    }]);
-  } catch (e) { 
-    console.error('LINE Msg Error', e);
-    // ユーザーにエラー内容を通知（デバッグ用）
-    showCustomAlert('通知エラー', 'LINEへのメッセージ送信に失敗しました。\n注文自体は完了しています。\nエラー: ' + (e.message || e));
-  }
+                { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "md" }
+            ]},
+            "body": { "type": "box", "layout": "vertical", "contents": bodyContents },
+            // ★参考コードと同じスタイル指定（ヘッダー背景色）
+            "styles": { "header": { "backgroundColor": "#1e50a2" }}
+    }};
 }
 
 function showCustomAlert(title, msg, cb) {
