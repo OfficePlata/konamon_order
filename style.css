@@ -1,31 +1,22 @@
 /* style.css - 粉もんスタンドおしん テーマ (Instagram Ver.) */
 
-/* Google Fonts: 日本語の丸ゴシック体に近いフォント */
+/* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
 
 :root {
-  /* Instagramのロゴや投稿テキストから抽出した「オシンブルー」 */
-  --brand-blue: #1e50a2; /* 落ち着いたネイビーブルー */
-  
-  /* 食欲をそそる「たこ焼きオレンジ」 */
+  --brand-blue: #1e50a2; 
   --food-orange: #E64A19; 
-  
-  /* 背景色 */
   --background-color: #faf9f6; 
-  
   --text-color: #333333;
   --card-bg-color: #ffffff;
   --footer-bg-color: #ffffff;
   --border-color: #e0e0e0;
-  
-  /* アクションカラー */
   --primary-action: var(--food-orange);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  /* 丸みのあるフォント指定 */
   font-family: "M PLUS Rounded 1c", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
@@ -54,16 +45,13 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 .app-header h1 { 
-    font-size: 1.2rem; 
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    font-size: 1.2rem; font-weight: 700; letter-spacing: 0.05em;
 }
 
 /* メイン */
 #app-main { padding: 1rem; }
 .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 
-/* モバイル最適化 */
 @media (min-width: 600px) {
     .menu-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 }
@@ -77,26 +65,17 @@ body {
 
 .category-nav a {
     white-space: nowrap; padding: 8px 16px; background: white; 
-    border-radius: 20px; 
-    text-decoration: none; 
-    color: var(--brand-blue);
-    font-weight: bold; font-size: 0.9rem;
+    border-radius: 20px; text-decoration: none; 
+    color: var(--brand-blue); font-weight: bold; font-size: 0.9rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.08); 
-    border: 1px solid rgba(30, 80, 162, 0.1);
-    transition: all 0.2s;
+    border: 1px solid rgba(30, 80, 162, 0.1); transition: all 0.2s;
 }
-.category-nav a:active {
-    background-color: var(--brand-blue);
-    color: white;
-}
+.category-nav a:active { background-color: var(--brand-blue); color: white; }
 
 .category-title { 
-    grid-column: 1 / -1; 
-    margin-top: 1.5rem; margin-bottom: 0.8rem; 
-    color: var(--brand-blue);
-    border-left: 6px solid var(--food-orange);
-    padding-left: 10px;
-    font-size: 1.1rem;
+    grid-column: 1 / -1; margin-top: 1.5rem; margin-bottom: 0.8rem; 
+    color: var(--brand-blue); border-left: 6px solid var(--food-orange);
+    padding-left: 10px; font-size: 1.1rem;
 }
 
 .menu-item-card {
@@ -110,8 +89,7 @@ body {
 .item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .item-name { font-weight: bold; margin-bottom: 0.4rem; font-size: 0.95rem; line-height: 1.4; color: var(--text-color); }
 .item-price { 
-    color: var(--food-orange);
-    font-weight: bold; font-size: 1.05rem; text-align: right; 
+    color: var(--food-orange); font-weight: bold; font-size: 1.05rem; text-align: right; 
 }
 
 /* フッター */
@@ -123,23 +101,20 @@ body {
   border-top: 1px solid #f0f0f0;
 }
 .view-cart-button {
-  background-color: var(--food-orange);
-  color: white; border: none;
+  background-color: var(--food-orange); color: white; border: none;
   border-radius: 50px; padding: 0.9rem 1.8rem; font-size: 1rem;
   font-weight: bold; cursor: pointer; 
   box-shadow: 0 4px 10px rgba(230, 74, 25, 0.3);
 }
-.view-cart-button:disabled { background-color: #ccc; box-shadow: none; opacity: 1; color: #999; }
+.view-cart-button:disabled { background-color: #ddd; box-shadow: none; opacity: 1; color: #999; }
 .total-price-display { font-size: 1.1rem; font-weight: bold; color: var(--brand-blue); }
 
 /* モーダル */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background-color: rgba(30, 80, 162, 0.4);
-  display: none;
-  justify-content: center; align-items: flex-end; 
-  z-index: 200;
-  backdrop-filter: blur(2px);
+  display: none; justify-content: center; align-items: flex-end; 
+  z-index: 200; backdrop-filter: blur(2px);
 }
 .modal-overlay.visible { display: flex; animation: fadeIn 0.2s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -153,20 +128,17 @@ body {
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 1rem 1.5rem; border-bottom: 1px solid #f5f5f5;
 }
 .modal-header h2 { font-size: 1.1rem; color: var(--brand-blue); }
 .close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #ccc; cursor: pointer; }
 .modal-footer { 
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #f5f5f5; background-color: #fff; 
+  padding: 1rem 1.5rem; border-top: 1px solid #f5f5f5; background-color: #fff; 
 }
 
 /* 詳細モーダル内 */
 .item-detail-body { 
-    padding: 1rem 1.5rem;
-    overflow-y: auto; flex-grow: 1; 
+    padding: 1rem 1.5rem; overflow-y: auto; flex-grow: 1; 
 }
 .item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 1rem; }
 #item-detail-description { margin-bottom: 1.5rem; color: #666; font-size: 0.9rem; line-height: 1.6; }
@@ -191,14 +163,19 @@ body {
   border-radius: 12px; margin-bottom: 0.6rem; cursor: pointer;
   background: white; transition: all 0.2s;
 }
-/* 選択時のスタイル */
-.option-label:has(input:checked) {
+/* ★変更: JSで付与する .selected クラスでスタイル適用 */
+.option-label.selected {
   border-color: var(--brand-blue);
   background-color: #eef4fc;
   color: var(--brand-blue); font-weight: bold;
 }
+/* 元の :has も念のため残すが、基本はJSクラス制御 */
+.option-label:has(input:checked) {
+  border-color: var(--brand-blue); background-color: #eef4fc; color: var(--brand-blue); font-weight: bold;
+}
+
 .option-label input { display: none; }
-.option-label:has(input:checked) .option-price { color: var(--food-orange); }
+.option-label.selected .option-price { color: var(--food-orange); }
 
 /* 数量セレクタ */
 .quantity-selector {
@@ -222,16 +199,24 @@ body {
     overflow-y: auto; flex-grow: 1;
 }
 
+/* ★変更: カートアイテムを見やすく */
 .cart-item {
-    padding: 1rem 0; border-bottom: 1px dashed #eee; display: flex; justify-content: space-between;
+    padding: 1rem; 
+    margin-bottom: 10px;
+    border: 1px solid #eee; 
+    border-radius: 10px;
+    background: #fff;
+    display: flex; justify-content: space-between;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
 }
 .cart-item-details { flex: 1; padding-right: 1rem; }
-.cart-item-name { font-weight: bold; font-size: 1rem; color: var(--brand-blue); }
-.cart-item-meta { font-size: 0.9rem; color: #777; font-weight: normal; margin-top: 2px; }
-.cart-item-toppings { font-size: 0.85rem; color: var(--food-orange); margin-top: 4px; }
-.cart-item-price { font-weight: bold; margin-top: 4px; color: #333; }
+.cart-item-name { font-weight: bold; font-size: 1rem; color: var(--brand-blue); margin-bottom: 4px; }
+.cart-item-meta { font-size: 0.9rem; color: #555; margin-bottom: 4px; }
+.cart-item-toppings { font-size: 0.85rem; margin-bottom: 6px; }
+.cart-item-price { font-weight: bold; font-size: 1.05rem; color: #333; }
 .cart-item-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
-.remove-item-btn { margin-top: 8px; color: #ccc; font-size: 1.5rem; padding: 0 8px; }
+.quantity-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.remove-item-btn { margin-top: 0; color: #999; font-size: 0.8rem; padding: 4px 8px; border: 1px solid #eee; border-radius: 4px; background: #fff; }
 
 /* カートオプション設定エリア */
 .order-options-container {
@@ -247,7 +232,6 @@ body {
 /* フォーム要素 */
 .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; color: #555; }
 
-/* ★変更: inputにもスタイルを適用 */
 .form-group input, 
 .form-group select, 
 .form-group textarea {
@@ -256,7 +240,6 @@ body {
     resize: vertical;
 }
 
-/* ★変更: focus時のスタイルもinputに適用 */
 .form-group input:focus,
 .form-group select:focus, 
 .form-group textarea:focus {
