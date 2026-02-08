@@ -21,6 +21,7 @@ body {
   background-color: var(--background-color);
   color: var(--text-color);
   padding-bottom: 90px;
+  -webkit-font-smoothing: antialiased; /* 文字の表示を滑らかに */
 }
 
 /* ローディング */
@@ -28,7 +29,7 @@ body {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background-color: rgba(250, 249, 246, 0.95);
   display: flex; flex-direction: column; justify-content: center;
-  align-items: center; z-index: 1000;
+  align-items: center; z-index: 2000; /* 最前面に */
 }
 .spinner {
   border: 4px solid rgba(30, 80, 162, 0.1); width: 40px; height: 40px;
@@ -77,11 +78,12 @@ body {
     color: var(--brand-blue); border-left: 6px solid var(--food-orange);
     padding-left: 10px; font-size: 1.1rem;
     
-    /* 重なり順の調整 */
+    /* 重なり順の調整: カードより後ろに */
     position: relative;
-    z-index: 5;
+    z-index: 1;
 }
 
+/* ★修正: メニューカードのタップ判定強化 */
 .menu-item-card {
   background-color: var(--card-bg-color); border-radius: 16px; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden;
@@ -91,11 +93,13 @@ body {
   /* タップ判定を確実にするための設定 */
   position: relative;
   z-index: 10; /* 他の要素より前面に */
-  -webkit-tap-highlight-color: rgba(0,0,0,0.05); /* タップ時のハイライト */
+  isolation: isolate; /* 重なりコンテキストを分離 */
+  touch-action: manipulation; /* ダブルタップズームを無効化して反応速度向上 */
+  -webkit-tap-highlight-color: rgba(0,0,0,0.05);
 }
 .menu-item-card:active { transform: scale(0.98); }
-.menu-item-card img { width: 100%; height: 130px; object-fit: cover; }
-.item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.menu-item-card img { width: 100%; height: 130px; object-fit: cover; pointer-events: none; /* 画像へのクリックを透過してカードに伝える */ }
+.item-info { padding: 0.85rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; /* テキストへのクリックを透過 */ }
 .item-name { font-weight: bold; margin-bottom: 0.4rem; font-size: 0.95rem; line-height: 1.4; color: var(--text-color); }
 .item-price { 
     color: var(--food-orange); font-weight: bold; font-size: 1.05rem; text-align: right; 
@@ -132,6 +136,7 @@ body {
   background-color: white; border-radius: 20px 20px 0 0; width: 100%;
   max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
 }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
@@ -143,11 +148,13 @@ body {
 .close-button { background: none; border: none; font-size: 2rem; padding: 0 0.5rem; color: #ccc; cursor: pointer; }
 .modal-footer { 
   padding: 1rem 1.5rem; border-top: 1px solid #f5f5f5; background-color: #fff; 
+  padding-bottom: max(1rem, env(safe-area-inset-bottom)); /* iPhone X以降の下部余白対応 */
 }
 
 /* 詳細モーダル内 */
 .item-detail-body { 
     padding: 1rem 1.5rem; overflow-y: auto; flex-grow: 1; 
+    -webkit-overflow-scrolling: touch; /* スクロール慣性 */
 }
 .item-detail-img { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 1rem; }
 #item-detail-description { margin-bottom: 1.5rem; color: #666; font-size: 0.9rem; line-height: 1.6; }
@@ -166,19 +173,24 @@ body {
 .badge-required { background-color: var(--food-orange); }
 .badge-optional { background-color: #aaa; }
 
+/* ★修正: 選択肢（ラベル）のタップ判定強化 */
 .option-label {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 0.9rem 1rem; border: 1px solid var(--border-color);
+  padding: 1rem; /* タップ領域拡大 */
+  border: 1px solid var(--border-color);
   border-radius: 12px; margin-bottom: 0.6rem; cursor: pointer;
-  background: white; transition: all 0.2s;
+  background: white; transition: all 0.1s;
+  position: relative; /* 確実に前面に */
+  z-index: 1;
 }
+
 /* JSで付与する .selected クラスでスタイル適用 */
 .option-label.selected {
   border-color: var(--brand-blue);
   background-color: #eef4fc;
   color: var(--brand-blue); font-weight: bold;
 }
-/* 元の :has も念のため残すが、基本はJSクラス制御 */
+/* 元の :has も残す */
 .option-label:has(input:checked) {
   border-color: var(--brand-blue); background-color: #eef4fc; color: var(--brand-blue); font-weight: bold;
 }
