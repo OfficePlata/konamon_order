@@ -6,7 +6,8 @@ const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw6Mk45Q_WaJvgG5NR9
 let menuData = [];
 let cart = [];
 let userProfile = null;
-let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 5 }; // 初期設定を5分刻みに変更
+// 初期設定（通信完了までのデフォルト値）
+let storeSettings = { open: "11:00", close: "21:00", prep: 30, interval: 5 }; 
 let currentModalItem = null;
 
 // DOM要素キャッシュ
@@ -143,7 +144,10 @@ async function fetchInitialData() {
         
         if (data.menu && Array.isArray(data.menu)) {
             menuData = data.menu;
-            if (data.settings) storeSettings = { ...storeSettings, ...data.settings };
+            // バックエンドからの設定値があれば上書き保存
+            if (data.settings) {
+                storeSettings = { ...storeSettings, ...data.settings };
+            }
             displayMenu();
         } else { 
             throw new Error('データ形式が不正です'); 
@@ -603,52 +607,63 @@ window.removeItem = (index) => {
     }
 };
 
-// 時間オプション
+// 時間オプション生成（シートの設定値を反映）
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
+    if (!select) return;
     select.innerHTML = '';
     
-    // 最短
+    // 「最短で受け取る」オプション
     const opt = document.createElement('option');
     opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
     select.appendChild(opt);
 
     const now = new Date();
-    // 5分刻み、30分後からに固定
-    const interval = 5; 
-    const prep = 30;
+    
+    // シート設定値を優先、なければデフォルト
+    // ★ここでシートの値を反映させる（前回は固定値だった）
+    const interval = parseInt(storeSettings.interval) || 5; 
+    const prep = parseInt(storeSettings.prep) || 30;
 
-    // 時間パース
-    const parseTime = (tStr) => {
-        const [h, m] = tStr.split(':').map(Number);
-        const d = new Date(now);
-        d.setHours(h, m, 0, 0);
-        return d;
+    // 時刻文字列解析（HH:mm形式、またはDate文字列内の時刻に対応）
+    const extractTime = (str) => {
+        if (!str) return null;
+        const match = String(str).match(/(\d{1,2}):(\d{2})/);
+        if (match) return { h: parseInt(match[1], 10), m: parseInt(match[2], 10) };
+        return null;
     };
     
-    const openTime = parseTime(storeSettings.open);
-    const closeTime = parseTime(storeSettings.close);
+    const openTime = extractTime(storeSettings.open) || { h: 11, m: 0 };
+    const closeTime = extractTime(storeSettings.close) || { h: 21, m: 0 };
+
+    const openDate = new Date(now); openDate.setHours(openTime.h, openTime.m, 0, 0);
+    const closeDate = new Date(now); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
     
-    // 最短受取可能時刻
+    // 最短受取可能時刻（現在時刻 + 準備時間）
     let earliest = new Date(now.getTime() + prep * 60000);
     
-    // 開始時刻設定
-    let t = new Date(earliest);
-    if (t < openTime) t = new Date(openTime);
+    // 開始時刻調整
+    let t = (earliest > openDate) ? earliest : openDate;
     
-    // 分をinterval刻みに丸める
+    // interval刻みに丸める（切り上げ）
     let m = t.getMinutes();
     let rem = m % interval;
     if(rem !== 0) t.setMinutes(m + (interval - rem));
     t.setSeconds(0); t.setMilliseconds(0);
 
-    while (t <= closeTime) {
+    // 選択肢生成ループ
+    while (t <= closeDate) {
         const hh = t.getHours().toString().padStart(2, '0');
         const mm = t.getMinutes().toString().padStart(2, '0');
         const val = `${hh}:${mm}`;
-        const o = document.createElement('option');
-        o.value = val; o.textContent = `${val} 頃`;
-        select.appendChild(o);
+        
+        // 過去の時間は表示しない（念のため）
+        if (t > now) {
+            const o = document.createElement('option');
+            o.value = val; o.textContent = `${val} 頃`;
+            select.appendChild(o);
+        }
+        
         t.setMinutes(t.getMinutes() + interval);
     }
 }
