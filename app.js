@@ -687,39 +687,51 @@ async function confirmAndSubmitOrder() {
 async function sendThanksMessage(orderData) {
   if (!liff.isInClient()) return;
   
+  // まずFlex Messageの送信を試みる
   try {
     const flexMessage = createReceiptFlexMessage(orderData);
     await liff.sendMessages([flexMessage]);
   } catch (err) {
     console.error('Flex Message Error:', err);
-    // ★追加: Flexが失敗したらテキストで再送
+    // ★追加: Flexが失敗したらテキストで再送（内容を修正）
     try {
         const safePrice = Number(orderData.totalPrice).toLocaleString();
-        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n受取人: ${orderData.recipientName}\n金額: ¥${safePrice}\n\n※詳細は注文履歴をご確認ください。`;
+        // ユーザー指摘対応: 時間を追加、履歴への言及を削除
+        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n受取人: ${orderData.recipientName}\n受取時間: ${orderData.pickupTime}\n金額: ¥${safePrice}\n\nご来店をお待ちしております。`;
         await liff.sendMessages([{ type: 'text', text: textMsg }]);
     } catch(e2) {
         console.error('Fallback Error:', e2);
-        showCustomAlert('通知エラー', '通知の送信に失敗しましたが、注文は完了しています。');
+        // ここでも失敗した場合はユーザーに通知（ただし注文は通っている）
+        showCustomAlert('通知エラー', '通知メッセージの送信に失敗しましたが、注文は正常に完了しています。');
     }
   }
 }
 
+// ★参考にいただいたapp.jsのロジックを移植（Flex Message生成）
 function createReceiptFlexMessage(orderData) {
     const safeTotalPrice = Number(orderData.totalPrice).toLocaleString();
     const safeRecipient = String(orderData.recipientName || 'お客様');
     const safeTime = String(orderData.pickupTime || 'ー');
 
+    // 商品リストの作成
     const itemDetails = orderData.cart.map(item => {
+        // オプション・トッピングの文字列生成
         let desc = item.optionName ? String(item.optionName) : '';
         if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
         if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name).join(',')}`;
         if (!desc) desc = ' '; 
 
         return {
-            "type": "box", "layout": "horizontal",
+            "type": "box", "layout": "vertical", "margin": "md",
             "contents": [
-                { "type": "text", "text": `${item.name}`, "wrap": true, "flex": 3, "weight": "bold" },
-                { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
+                {
+                    "type": "box", "layout": "horizontal",
+                    "contents": [
+                        { "type": "text", "text": item.name, "wrap": true, "flex": 3, "weight": "bold" },
+                        { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
+                    ]
+                },
+                { "type": "text", "text": desc, "size": "xs", "color": "#888888", "wrap": true }
             ]
         };
     });
@@ -729,33 +741,45 @@ function createReceiptFlexMessage(orderData) {
         { "type": "separator", "margin": "md" },
         ...itemDetails,
         { "type": "separator", "margin": "lg" },
+        // 受取情報ブロック
         { "type": "box", "layout": "vertical", "margin": "md", "contents": [
              { "type": "text", "text": "受取情報", "size": "xs", "color": "#aaaaaa" },
              { "type": "text", "text": `受取人: ${safeRecipient} 様`, "size": "sm", "margin": "sm" },
              { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
         ]},
         { "type": "separator", "margin": "lg" },
+        // 合計金額ブロック
         { "type": "box", "layout": "horizontal", "contents": [
             { "type": "text", "text": "合計金額", "weight": "bold" },
-            { "type": "text", "text": `¥${safeTotalPrice}`, "weight": "bold", "align": "end" }
+            { "type": "text", "text": `¥${safeTotalPrice}`, "weight": "bold", "align": "end", "color": "#E64A19", "size": "lg" }
         ], "margin": "md"}
     ];
 
-    // ★修正: 備考欄の安全な処理
+    // 備考欄
     if (orderData.notes && typeof orderData.notes === 'string' && orderData.notes.trim() !== '') {
         const noteText = orderData.notes.substring(0, 300); // 文字数制限
         bodyContents.push({ "type": "separator", "margin": "md" });
         bodyContents.push({ "type": "text", "text": `備考: ${noteText}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
     }
 
-    return { "type": "flex", "altText": "ご注文ありがとうございます", "contents": { "type": "bubble",
-            "header": { "type": "box", "layout": "vertical", "contents": [
-                { "type": "text", "text": "粉もんスタンド おしん", "weight": "bold", "color": "#ffffff" },
-                { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "md" }
-            ]},
-            "body": { "type": "box", "layout": "vertical", "contents": bodyContents },
+    return { 
+        "type": "flex", 
+        "altText": "ご注文ありがとうございます", 
+        "contents": { 
+            "type": "bubble",
+            "header": { 
+                "type": "box", "layout": "vertical", "contents": [
+                    { "type": "text", "text": "粉もんスタンド おしん", "weight": "bold", "color": "#ffffff" },
+                    { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "md" }
+                ]
+            },
+            "body": { 
+                "type": "box", "layout": "vertical", "contents": bodyContents 
+            },
+            // ★参考コードと同じスタイル指定（ヘッダー背景色）
             "styles": { "header": { "backgroundColor": "#1e50a2" }}
-    }};
+        }
+    };
 }
 
 function showCustomAlert(title, msg, cb) {
