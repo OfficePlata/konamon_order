@@ -646,12 +646,16 @@ async function confirmAndSubmitOrder() {
     
     const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
+    // ★修正: 備考欄の値を直接取得して確実に反映させる
+    const notesElement = document.getElementById('order-notes');
+    const notesValue = notesElement ? notesElement.value.trim() : '';
+
     const orderData = {
         userId: userProfile ? userProfile.userId : 'GUEST',
         displayName: userProfile ? userProfile.displayName : 'ゲスト',
         recipientName: recipientName,
         pickupTime: pickupTime,
-        notes: dom.orderNotes.value.trim(),
+        notes: notesValue,
         totalPrice: totalPrice,
         cart: cart, 
         type: 'OSHIN_ORDER'
@@ -696,8 +700,14 @@ async function sendThanksMessage(orderData) {
     // ★追加: Flexが失敗したらテキストで再送（内容を修正）
     try {
         const safePrice = Number(orderData.totalPrice).toLocaleString();
-        // ユーザー指摘対応: 時間を追加、履歴への言及を削除
-        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n受取人: ${orderData.recipientName}\n受取時間: ${orderData.pickupTime}\n金額: ¥${safePrice}\n\nご来店をお待ちしております。`;
+        
+        // 備考がある場合はテキストにも追加
+        let notesText = "";
+        if (orderData.notes && orderData.notes.trim() !== "") {
+            notesText = `\n備考: ${orderData.notes}`;
+        }
+
+        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n受取人: ${orderData.recipientName}\n受取時間: ${orderData.pickupTime}\n金額: ¥${safePrice}${notesText}\n\nご来店をお待ちしております。`;
         await liff.sendMessages([{ type: 'text', text: textMsg }]);
     } catch(e2) {
         console.error('Fallback Error:', e2);
@@ -722,16 +732,10 @@ function createReceiptFlexMessage(orderData) {
         if (!desc) desc = ' '; 
 
         return {
-            "type": "box", "layout": "vertical", "margin": "md",
+            "type": "box", "layout": "horizontal",
             "contents": [
-                {
-                    "type": "box", "layout": "horizontal",
-                    "contents": [
-                        { "type": "text", "text": item.name, "wrap": true, "flex": 3, "weight": "bold" },
-                        { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
-                    ]
-                },
-                { "type": "text", "text": desc, "size": "xs", "color": "#888888", "wrap": true }
+                { "type": "text", "text": `${item.name}`, "wrap": true, "flex": 3, "weight": "bold" },
+                { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
             ]
         };
     });
@@ -755,11 +759,12 @@ function createReceiptFlexMessage(orderData) {
         ], "margin": "md"}
     ];
 
-    // 備考欄
-    if (orderData.notes && typeof orderData.notes === 'string' && orderData.notes.trim() !== '') {
-        const noteText = orderData.notes.substring(0, 300); // 文字数制限
+    // ★修正: 備考欄の追加ロジックをシンプルに push で実装
+    if (orderData.notes && orderData.notes !== '') {
+        const noteText = orderData.notes.length > 300 ? orderData.notes.substring(0, 300) + '...' : orderData.notes;
         bodyContents.push({ "type": "separator", "margin": "md" });
-        bodyContents.push({ "type": "text", "text": `備考: ${noteText}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
+        bodyContents.push({ "type": "text", "text": "備考", "size": "xs", "color": "#aaaaaa", "margin": "md" });
+        bodyContents.push({ "type": "text", "text": noteText, "size": "sm", "color": "#555555", "wrap": true, "margin": "sm" });
     }
 
     return { 
