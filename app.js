@@ -36,7 +36,7 @@ async function initializeApp() {
              console.log("外部ブラウザで起動中");
         }
 
-        // ログイン処理（参照コードに合わせる）
+        // ログイン処理
         if (!liff.isLoggedIn()) {
             liff.login();
             return;
@@ -664,10 +664,10 @@ async function confirmAndSubmitOrder() {
             body: JSON.stringify(orderData)
         });
         
-        // ★重要: メッセージ送信（エラーは内部でログ出力のみ）
+        // ★修正: 送信処理を呼び出す
         await sendThanksMessage(orderData);
         
-        showCustomAlert('注文完了', 'お店からの返信をもって注文完了です！\nお店からの返信を必ずご確認ください！', () => {
+        showCustomAlert('注文完了', 'ご注文ありがとうございます！\nLINEの通知をご確認ください。', () => {
             if(liff.isInClient()) liff.closeWindow();
             else location.reload();
         });
@@ -683,20 +683,28 @@ async function confirmAndSubmitOrder() {
     }
 }
 
-// ★参考にいただいたapp.jsのロジックを移植（メッセージ送信）
+// ★修正: Flex Message送信 ＆ テキストフォールバック
 async function sendThanksMessage(orderData) {
   if (!liff.isInClient()) return;
-  const flexMessage = createReceiptFlexMessage(orderData);
+  
   try {
+    const flexMessage = createReceiptFlexMessage(orderData);
     await liff.sendMessages([flexMessage]);
   } catch (err) {
-    console.error('メッセージの送信に失敗しました:', err);
+    console.error('Flex Message Error:', err);
+    // ★追加: Flexが失敗したらテキストで再送
+    try {
+        const safePrice = Number(orderData.totalPrice).toLocaleString();
+        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n受取人: ${orderData.recipientName}\n金額: ¥${safePrice}\n\n※詳細は注文履歴をご確認ください。`;
+        await liff.sendMessages([{ type: 'text', text: textMsg }]);
+    } catch(e2) {
+        console.error('Fallback Error:', e2);
+        showCustomAlert('通知エラー', '通知の送信に失敗しましたが、注文は完了しています。');
+    }
   }
 }
 
-// ★参考にいただいたapp.jsのロジックを移植（Flex Message生成）
 function createReceiptFlexMessage(orderData) {
-    // データ整形
     const safeTotalPrice = Number(orderData.totalPrice).toLocaleString();
     const safeRecipient = String(orderData.recipientName || 'お客様');
     const safeTime = String(orderData.pickupTime || 'ー');
@@ -705,7 +713,7 @@ function createReceiptFlexMessage(orderData) {
         let desc = item.optionName ? String(item.optionName) : '';
         if(item.flavors && item.flavors.length) desc += ` / ${item.flavors.join(',')}`;
         if(item.toppings && item.toppings.length) desc += ` / +${item.toppings.map(t=>t.name).join(',')}`;
-        if (!desc) desc = ' '; // 空文字対策
+        if (!desc) desc = ' '; 
 
         return {
             "type": "box", "layout": "horizontal",
@@ -719,17 +727,13 @@ function createReceiptFlexMessage(orderData) {
     const bodyContents = [
         { "type": "text", "text": "ご注文内容", "size": "xs", "color": "#aaaaaa" },
         { "type": "separator", "margin": "md" },
-        // 商品詳細
         ...itemDetails,
-        // セパレータ
         { "type": "separator", "margin": "lg" },
-        // 受取情報
         { "type": "box", "layout": "vertical", "margin": "md", "contents": [
              { "type": "text", "text": "受取情報", "size": "xs", "color": "#aaaaaa" },
              { "type": "text", "text": `受取人: ${safeRecipient} 様`, "size": "sm", "margin": "sm" },
              { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
         ]},
-        // 合計
         { "type": "separator", "margin": "lg" },
         { "type": "box", "layout": "horizontal", "contents": [
             { "type": "text", "text": "合計金額", "weight": "bold" },
@@ -737,10 +741,11 @@ function createReceiptFlexMessage(orderData) {
         ], "margin": "md"}
     ];
 
-    // 備考がある場合
-    if (orderData.notes) {
+    // ★修正: 備考欄の安全な処理
+    if (orderData.notes && typeof orderData.notes === 'string' && orderData.notes.trim() !== '') {
+        const noteText = orderData.notes.substring(0, 300); // 文字数制限
         bodyContents.push({ "type": "separator", "margin": "md" });
-        bodyContents.push({ "type": "text", "text": `備考: ${orderData.notes}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
+        bodyContents.push({ "type": "text", "text": `備考: ${noteText}`, "size": "xs", "color": "#555", "wrap": true, "margin": "md" });
     }
 
     return { "type": "flex", "altText": "ご注文ありがとうございます", "contents": { "type": "bubble",
@@ -749,7 +754,6 @@ function createReceiptFlexMessage(orderData) {
                 { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "md" }
             ]},
             "body": { "type": "box", "layout": "vertical", "contents": bodyContents },
-            // ★参考コードと同じスタイル指定（ヘッダー背景色）
             "styles": { "header": { "backgroundColor": "#1e50a2" }}
     }};
 }
