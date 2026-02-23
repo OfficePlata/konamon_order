@@ -97,6 +97,15 @@ function setupDOM() {
     dom.customAlertTitle = document.getElementById('custom-alert-title');
     dom.customAlertMessage = document.getElementById('custom-alert-message');
     dom.customAlertOkButton = document.getElementById('custom-alert-ok-button');
+
+    // ★追加: プレースホルダーの初期設定（前回名前を保存しているか確認）
+    if (dom.recipientName) {
+        if (localStorage.getItem('oshin_recipientName')) {
+            dom.recipientName.placeholder = '受取人名（2回目以降は省略可）';
+        } else {
+            dom.recipientName.placeholder = '受取人名を入力（必須）';
+        }
+    }
 }
 
 function setupEventListeners() {
@@ -428,7 +437,6 @@ function handleAddToCartClick() {
         checked.forEach(el => flavors.push(el.value));
     }
 
-    // ★確認: ここでトッピングのオブジェクトを作成していることを確認
     let toppings = [];
     dom.itemDetailToppings.querySelectorAll('input:checked').forEach(el => {
         toppings.push({ id: el.value, name: el.dataset.name, price: parseInt(el.dataset.price, 10) });
@@ -634,12 +642,24 @@ async function confirmAndSubmitOrder() {
     const originalText = dom.submitOrderButton.textContent;
     dom.submitOrderButton.textContent = '送信中...';
     
-    const recipientName = dom.recipientName.value.trim();
+    // ★修正: 受取人名のローカルストレージ活用（2回目以降は省略可能）
+    let recipientName = dom.recipientName.value.trim();
+    const savedName = localStorage.getItem('oshin_recipientName');
+
     if (!recipientName) {
-        showCustomAlert('入力エラー', '受取人のお名前を入力してください');
-        dom.submitOrderButton.disabled = false;
-        dom.submitOrderButton.textContent = originalText;
-        return;
+        if (savedName) {
+            recipientName = savedName; // 2回目以降で空欄の場合は保存された名前を使用
+        } else {
+            showCustomAlert('入力エラー', '受取人のお名前を入力してください\n(2回目以降は省略可能です)');
+            dom.submitOrderButton.disabled = false;
+            dom.submitOrderButton.textContent = originalText;
+            return;
+        }
+    } else {
+        // 新しく入力された場合はローカルストレージに保存
+        localStorage.setItem('oshin_recipientName', recipientName);
+        // 次回開いたときのためにプレースホルダーも更新しておく
+        if(dom.recipientName) dom.recipientName.placeholder = '受取人名（2回目以降は省略可）';
     }
     
     let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
@@ -696,12 +716,13 @@ async function sendThanksMessage(orderData) {
     console.error('Flex Message Error:', err);
     try {
         const safePrice = Number(orderData.totalPrice).toLocaleString();
+        const totalQuantity = orderData.cart.reduce((sum, item) => sum + item.quantity, 0); // ★追加: 合計点数
+
         let notesText = "";
         if (orderData.notes && orderData.notes.trim() !== "") {
             notesText = `\n備考: ${orderData.notes}`;
         }
         
-        // ★追加: テキスト通知にも味とトッピングの情報を入れる
         let itemsText = orderData.cart.map(item => {
             let details = `・${item.name} x${item.quantity}`;
             if(item.flavors && item.flavors.length) details += `\n  味: ${item.flavors.join(',')}`;
@@ -709,7 +730,8 @@ async function sendThanksMessage(orderData) {
             return details;
         }).join('\n');
 
-        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n${itemsText}\n\n受取人: ${orderData.recipientName}\n受取時間: ${orderData.pickupTime}\n金額: ¥${safePrice}${notesText}\n\nご来店をお待ちしております。`;
+        // ★修正: テキスト通知にも合計点数を追加
+        const textMsg = `【注文完了】\n粉もんスタンド おしん\n\nご注文ありがとうございます。\n\n${itemsText}\n\n受取人: ${orderData.recipientName}\n受取時間: ${orderData.pickupTime}\n合計点数: ${totalQuantity}点\n金額: ¥${safePrice}${notesText}\n\nご来店をお待ちしております。`;
         await liff.sendMessages([{ type: 'text', text: textMsg }]);
     } catch(e2) {
         console.error('Fallback Error:', e2);
@@ -722,8 +744,10 @@ function createReceiptFlexMessage(orderData) {
     const safeTotalPrice = Number(orderData.totalPrice).toLocaleString();
     const safeRecipient = String(orderData.recipientName || 'お客様');
     const safeTime = String(orderData.pickupTime || 'ー');
+    
+    // ★追加: 合計点数の計算
+    const totalQuantity = orderData.cart.reduce((sum, item) => sum + item.quantity, 0);
 
-    // ★修正: Flex Messageの商品詳細にも味とトッピングを追加
     const itemDetails = orderData.cart.map(item => {
         let desc = item.optionName ? String(item.optionName) : '';
         
@@ -764,10 +788,15 @@ function createReceiptFlexMessage(orderData) {
              { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
         ]},
         { "type": "separator", "margin": "lg" },
+        // ★修正: 合計点数と合計金額の表示レイアウト
+        { "type": "box", "layout": "horizontal", "contents": [
+            { "type": "text", "text": "合計点数", "size": "sm" },
+            { "type": "text", "text": `${totalQuantity}点`, "size": "sm", "align": "end", "weight": "bold" }
+        ], "margin": "md"},
         { "type": "box", "layout": "horizontal", "contents": [
             { "type": "text", "text": "合計金額", "weight": "bold" },
             { "type": "text", "text": `¥${safeTotalPrice}`, "weight": "bold", "align": "end", "color": "#E64A19", "size": "lg" }
-        ], "margin": "md"}
+        ], "margin": "sm"}
     ];
 
     if (orderData.notes && orderData.notes !== '') {
