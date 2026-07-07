@@ -72,6 +72,7 @@ function setupDOM() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     dom.recipientName = document.getElementById('recipient-name');
+    dom.pickupDate = document.getElementById('pickup-date');
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
     
@@ -117,6 +118,9 @@ function setupEventListeners() {
     if(dom.itemDetailModal) dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
 
     if(dom.submitOrderButton) dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
+
+    // ★追加: 受取日を変更したら受取時間の選択肢を作り直す
+    if(dom.pickupDate) dom.pickupDate.addEventListener('change', updatePickupTimeOptions);
 
     if(dom.itemDetailDecrease) {
         dom.itemDetailDecrease.addEventListener('click', () => {
@@ -501,6 +505,7 @@ function updateCartView() {
 
 function openCartModal() {
     renderCartItems();
+    populatePickupDateOptions();
     updatePickupTimeOptions();
     
     const total = cart.reduce((s,i) => s + (i.unitPrice * i.quantity), 0);
@@ -586,18 +591,51 @@ window.removeItem = (index) => {
     }
 };
 
+function populatePickupDateOptions() {
+    const select = dom.pickupDate;
+    if (!select) return;
+
+    // 既に生成済みなら選択状態を保持したままにする（開くたびにリセットしない）
+    const prev = select.value;
+    select.innerHTML = '';
+
+    const now = new Date();
+    const week = ['日', '月', '火', '水', '木', '金', '土'];
+
+    // 本日から7日先まで（計8日分）
+    for (let i = 0; i <= 7; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() + i);
+        const mo = d.getMonth() + 1;
+        const da = d.getDate();
+        const wd = week[d.getDay()];
+        const dateLabel = `${mo}/${da}(${wd})`;
+
+        let displayLabel = dateLabel;
+        if (i === 0) displayLabel = `本日 ${dateLabel}`;
+        else if (i === 1) displayLabel = `明日 ${dateLabel}`;
+
+        const o = document.createElement('option');
+        o.value = String(i);            // 何日先か（0=本日）
+        o.dataset.label = dateLabel;    // 注文情報に載せる日付表記（例: 8/9(土)）
+        o.textContent = displayLabel;
+        select.appendChild(o);
+    }
+
+    if (prev !== '') select.value = prev;
+}
+
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
     select.innerHTML = '';
-    
-    const opt = document.createElement('option');
-    opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
-    select.appendChild(opt);
 
-    const now = new Date();
-    
-    const interval = parseInt(storeSettings.interval) || 5; 
+    // 選択中の受取日（0=本日, 1=明日, ...）
+    const dateOpt = dom.pickupDate ? dom.pickupDate.options[dom.pickupDate.selectedIndex] : null;
+    const dayOffset = dateOpt ? parseInt(dateOpt.value, 10) : 0;
+    const isToday = (dayOffset === 0);
+
+    const interval = parseInt(storeSettings.interval) || 5;
     const prep = parseInt(storeSettings.prep) || 30;
 
     const extractTime = (str) => {
@@ -606,34 +644,59 @@ function updatePickupTimeOptions() {
         if (match) return { h: parseInt(match[1], 10), m: parseInt(match[2], 10) };
         return null;
     };
-    
+
     const openTime = extractTime(storeSettings.open) || { h: 11, m: 0 };
     const closeTime = extractTime(storeSettings.close) || { h: 21, m: 0 };
 
-    const openDate = new Date(now); openDate.setHours(openTime.h, openTime.m, 0, 0);
-    const closeDate = new Date(now); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
-    
-    let earliest = new Date(now.getTime() + prep * 60000);
-    
-    let t = (earliest > openDate) ? earliest : openDate;
-    
-    let m = t.getMinutes();
-    let rem = m % interval;
-    if(rem !== 0) t.setMinutes(m + (interval - rem));
+    const now = new Date();
+
+    // 対象日の基準日（本日＋dayOffset日）
+    const baseDate = new Date(now);
+    baseDate.setDate(now.getDate() + dayOffset);
+
+    const openDate = new Date(baseDate); openDate.setHours(openTime.h, openTime.m, 0, 0);
+    const closeDate = new Date(baseDate); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
+
+    let t;
+    if (isToday) {
+        // 当日のみ「最短で受け取る」を提示
+        const opt = document.createElement('option');
+        opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
+        select.appendChild(opt);
+
+        // 当日は準備時間を考慮した最短時刻から
+        const earliest = new Date(now.getTime() + prep * 60000);
+        t = (earliest > openDate) ? earliest : openDate;
+    } else {
+        // 翌日以降は開店時刻から全枠
+        t = new Date(openDate);
+    }
+
+    // interval（分）単位に切り上げ
+    const rem = t.getMinutes() % interval;
+    if (rem !== 0) t.setMinutes(t.getMinutes() + (interval - rem));
     t.setSeconds(0); t.setMilliseconds(0);
 
     while (t <= closeDate) {
         const hh = t.getHours().toString().padStart(2, '0');
         const mm = t.getMinutes().toString().padStart(2, '0');
         const val = `${hh}:${mm}`;
-        
-        if (t > now) {
+
+        // 当日は現在時刻より後のみ。翌日以降は全枠表示。
+        if (!isToday || t > now) {
             const o = document.createElement('option');
             o.value = val; o.textContent = `${val} 頃`;
             select.appendChild(o);
         }
-        
+
         t.setMinutes(t.getMinutes() + interval);
+    }
+
+    // 万一選択肢が空なら最短を残す（当日で営業時間外など）
+    if (select.options.length === 0) {
+        const o = document.createElement('option');
+        o.value = 'shortest'; o.textContent = '最短で受け取る（準備でき次第）';
+        select.appendChild(o);
     }
 }
 
@@ -662,8 +725,12 @@ async function confirmAndSubmitOrder() {
         if(dom.recipientName) dom.recipientName.placeholder = '受取人名（2回目以降は省略可）';
     }
     
-    let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
-    if (dom.pickupTime.value === 'shortest') pickupTime = '最短（準備でき次第）';
+    // ★変更: 受取日ラベルを取得して「日付＋時間」で送信する
+    const _dateOpt = dom.pickupDate ? dom.pickupDate.options[dom.pickupDate.selectedIndex] : null;
+    const _dateLabel = _dateOpt ? (_dateOpt.dataset.label || '') : '';
+    let _timeText = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
+    if (dom.pickupTime.value === 'shortest') _timeText = '最短（準備でき次第）';
+    let pickupTime = _dateLabel ? `${_dateLabel} ${_timeText}` : _timeText;
     
     const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
@@ -724,7 +791,9 @@ async function sendThanksMessage(orderData) {
         }
         
         let itemsText = orderData.cart.map(item => {
-            let details = `・${item.name} x${item.quantity}`;
+            let details = item.quantity >= 2
+                ? `・${item.name} ×${item.quantity}【複数】`
+                : `・${item.name} ×${item.quantity}`;
             if(item.flavors && item.flavors.length) details += `\n  味: ${item.flavors.join(',')}`;
             if(item.toppings && item.toppings.length) details += `\n  ＋: ${item.toppings.map(t=>t.name).join(',')}`;
             return details;
@@ -744,13 +813,16 @@ function createReceiptFlexMessage(orderData) {
     const safeTotalPrice = Number(orderData.totalPrice).toLocaleString();
     const safeRecipient = String(orderData.recipientName || 'お客様');
     const safeTime = String(orderData.pickupTime || 'ー');
-    
-    // ★追加: 合計点数の計算
+
+    // 合計点数の計算
     const totalQuantity = orderData.cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    // ★追加: 同一商品を2個以上頼んだ行を強調する赤色
+    const EMPHASIS_COLOR = "#E60012";
 
     const itemDetails = orderData.cart.map(item => {
         let desc = item.optionName ? String(item.optionName) : '';
-        
+
         // 味の追加
         if(item.flavors && item.flavors.length) {
             desc += ` / 味: ${item.flavors.join(',')}`;
@@ -759,8 +831,12 @@ function createReceiptFlexMessage(orderData) {
         if(item.toppings && item.toppings.length) {
             desc += ` / ＋: ${item.toppings.map(t=>t.name).join(',')}`;
         }
-        
-        if (!desc) desc = ' '; 
+
+        if (!desc) desc = ' ';
+
+        // ★追加: 2個以上は商品名・数量を赤太字にして見逃しを防ぐ
+        const isMulti = item.quantity >= 2;
+        const lineColor = isMulti ? EMPHASIS_COLOR : "#000000";
 
         return {
             "type": "box", "layout": "vertical", "margin": "md",
@@ -768,8 +844,8 @@ function createReceiptFlexMessage(orderData) {
                 {
                     "type": "box", "layout": "horizontal",
                     "contents": [
-                        { "type": "text", "text": `${item.name}`, "wrap": true, "flex": 3, "weight": "bold" },
-                        { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end" }
+                        { "type": "text", "text": `${item.name}`, "wrap": true, "flex": 3, "weight": "bold", "color": lineColor },
+                        { "type": "text", "text": `x ${item.quantity}`, "flex": 1, "align": "end", "weight": "bold", "color": lineColor }
                     ]
                 },
                 { "type": "text", "text": desc, "size": "xs", "color": "#888888", "wrap": true }
@@ -785,10 +861,9 @@ function createReceiptFlexMessage(orderData) {
         { "type": "box", "layout": "vertical", "margin": "md", "contents": [
              { "type": "text", "text": "受取情報", "size": "xs", "color": "#aaaaaa" },
              { "type": "text", "text": `受取人: ${safeRecipient} 様`, "size": "sm", "margin": "sm" },
-             { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
+             { "type": "text", "text": `日時: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
         ]},
         { "type": "separator", "margin": "lg" },
-        // ★修正: 合計点数と合計金額の表示レイアウト
         { "type": "box", "layout": "horizontal", "contents": [
             { "type": "text", "text": "合計点数", "size": "sm" },
             { "type": "text", "text": `${totalQuantity}点`, "size": "sm", "align": "end", "weight": "bold" }
@@ -806,19 +881,19 @@ function createReceiptFlexMessage(orderData) {
         bodyContents.push({ "type": "text", "text": noteText, "size": "sm", "color": "#555555", "wrap": true, "margin": "sm" });
     }
 
-    return { 
-        "type": "flex", 
-        "altText": "ご注文ありがとうございます", 
-        "contents": { 
+    return {
+        "type": "flex",
+        "altText": "ご注文ありがとうございます",
+        "contents": {
             "type": "bubble",
-            "header": { 
+            "header": {
                 "type": "box", "layout": "vertical", "contents": [
                     { "type": "text", "text": "粉もんスタンド おしん", "weight": "bold", "color": "#ffffff" },
                     { "type": "text", "text": "ご注文承りました", "weight": "bold", "size": "xl", "color": "#ffffff", "margin": "md" }
                 ]
             },
-            "body": { 
-                "type": "box", "layout": "vertical", "contents": bodyContents 
+            "body": {
+                "type": "box", "layout": "vertical", "contents": bodyContents
             },
             "styles": { "header": { "backgroundColor": "#1e50a2" }}
         }
