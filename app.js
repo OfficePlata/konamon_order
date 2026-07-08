@@ -72,7 +72,6 @@ function setupDOM() {
     dom.cartItemsContainer = document.getElementById('cart-items-container');
     dom.cartModalTotalPrice = document.getElementById('cart-modal-total-price');
     dom.recipientName = document.getElementById('recipient-name');
-    dom.pickupDate = document.getElementById('pickup-date');
     dom.pickupTime = document.getElementById('pickup-time');
     dom.orderNotes = document.getElementById('order-notes');
     
@@ -118,9 +117,6 @@ function setupEventListeners() {
     if(dom.itemDetailModal) dom.itemDetailModal.addEventListener('click', (e) => { if (e.target === dom.itemDetailModal) closeItemDetailModal(); });
 
     if(dom.submitOrderButton) dom.submitOrderButton.addEventListener('click', confirmAndSubmitOrder);
-
-    // ★追加: 受取日を変更したら受取時間の選択肢を作り直す
-    if(dom.pickupDate) dom.pickupDate.addEventListener('change', updatePickupTimeOptions);
 
     if(dom.itemDetailDecrease) {
         dom.itemDetailDecrease.addEventListener('click', () => {
@@ -505,7 +501,6 @@ function updateCartView() {
 
 function openCartModal() {
     renderCartItems();
-    populatePickupDateOptions();
     updatePickupTimeOptions();
     
     const total = cart.reduce((s,i) => s + (i.unitPrice * i.quantity), 0);
@@ -591,49 +586,16 @@ window.removeItem = (index) => {
     }
 };
 
-function populatePickupDateOptions() {
-    const select = dom.pickupDate;
-    if (!select) return;
-
-    // 既に生成済みなら選択状態を保持したままにする（開くたびにリセットしない）
-    const prev = select.value;
-    select.innerHTML = '';
-
-    const now = new Date();
-    const week = ['日', '月', '火', '水', '木', '金', '土'];
-
-    // 本日から7日先まで（計8日分）
-    for (let i = 0; i <= 7; i++) {
-        const d = new Date(now);
-        d.setDate(now.getDate() + i);
-        const mo = d.getMonth() + 1;
-        const da = d.getDate();
-        const wd = week[d.getDay()];
-        const dateLabel = `${mo}/${da}(${wd})`;
-
-        let displayLabel = dateLabel;
-        if (i === 0) displayLabel = `本日 ${dateLabel}`;
-        else if (i === 1) displayLabel = `明日 ${dateLabel}`;
-
-        const o = document.createElement('option');
-        o.value = String(i);            // 何日先か（0=本日）
-        o.dataset.label = dateLabel;    // 注文情報に載せる日付表記（例: 8/9(土)）
-        o.textContent = displayLabel;
-        select.appendChild(o);
-    }
-
-    if (prev !== '') select.value = prev;
-}
-
 function updatePickupTimeOptions() {
     const select = dom.pickupTime;
     if (!select) return;
     select.innerHTML = '';
 
-    // 選択中の受取日（0=本日, 1=明日, ...）
-    const dateOpt = dom.pickupDate ? dom.pickupDate.options[dom.pickupDate.selectedIndex] : null;
-    const dayOffset = dateOpt ? parseInt(dateOpt.value, 10) : 0;
-    const isToday = (dayOffset === 0);
+    const opt = document.createElement('option');
+    opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
+    select.appendChild(opt);
+
+    const now = new Date();
 
     const interval = parseInt(storeSettings.interval) || 5;
     const prep = parseInt(storeSettings.prep) || 30;
@@ -648,33 +610,16 @@ function updatePickupTimeOptions() {
     const openTime = extractTime(storeSettings.open) || { h: 11, m: 0 };
     const closeTime = extractTime(storeSettings.close) || { h: 21, m: 0 };
 
-    const now = new Date();
+    const openDate = new Date(now); openDate.setHours(openTime.h, openTime.m, 0, 0);
+    const closeDate = new Date(now); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
 
-    // 対象日の基準日（本日＋dayOffset日）
-    const baseDate = new Date(now);
-    baseDate.setDate(now.getDate() + dayOffset);
+    let earliest = new Date(now.getTime() + prep * 60000);
 
-    const openDate = new Date(baseDate); openDate.setHours(openTime.h, openTime.m, 0, 0);
-    const closeDate = new Date(baseDate); closeDate.setHours(closeTime.h, closeTime.m, 0, 0);
+    let t = (earliest > openDate) ? earliest : openDate;
 
-    let t;
-    if (isToday) {
-        // 当日のみ「最短で受け取る」を提示
-        const opt = document.createElement('option');
-        opt.value = 'shortest'; opt.textContent = '最短で受け取る（準備でき次第）';
-        select.appendChild(opt);
-
-        // 当日は準備時間を考慮した最短時刻から
-        const earliest = new Date(now.getTime() + prep * 60000);
-        t = (earliest > openDate) ? earliest : openDate;
-    } else {
-        // 翌日以降は開店時刻から全枠
-        t = new Date(openDate);
-    }
-
-    // interval（分）単位に切り上げ
-    const rem = t.getMinutes() % interval;
-    if (rem !== 0) t.setMinutes(t.getMinutes() + (interval - rem));
+    let m = t.getMinutes();
+    let rem = m % interval;
+    if(rem !== 0) t.setMinutes(m + (interval - rem));
     t.setSeconds(0); t.setMilliseconds(0);
 
     while (t <= closeDate) {
@@ -682,8 +627,7 @@ function updatePickupTimeOptions() {
         const mm = t.getMinutes().toString().padStart(2, '0');
         const val = `${hh}:${mm}`;
 
-        // 当日は現在時刻より後のみ。翌日以降は全枠表示。
-        if (!isToday || t > now) {
+        if (t > now) {
             const o = document.createElement('option');
             o.value = val; o.textContent = `${val} 頃`;
             select.appendChild(o);
@@ -692,12 +636,11 @@ function updatePickupTimeOptions() {
         t.setMinutes(t.getMinutes() + interval);
     }
 
-    // 万一選択肢が空なら最短を残す（当日で営業時間外など）
-    if (select.options.length === 0) {
-        const o = document.createElement('option');
-        o.value = 'shortest'; o.textContent = '最短で受け取る（準備でき次第）';
-        select.appendChild(o);
-    }
+    // ★追加: 翌日以降の注文（受取日時は備考欄に記入してもらう）
+    const nextDayOpt = document.createElement('option');
+    nextDayOpt.value = 'nextday';
+    nextDayOpt.textContent = '翌日以降（備考欄に日時入力）';
+    select.appendChild(nextDayOpt);
 }
 
 async function confirmAndSubmitOrder() {
@@ -725,17 +668,23 @@ async function confirmAndSubmitOrder() {
         if(dom.recipientName) dom.recipientName.placeholder = '受取人名（2回目以降は省略可）';
     }
     
-    // ★変更: 受取日ラベルを取得して「日付＋時間」で送信する
-    const _dateOpt = dom.pickupDate ? dom.pickupDate.options[dom.pickupDate.selectedIndex] : null;
-    const _dateLabel = _dateOpt ? (_dateOpt.dataset.label || '') : '';
-    let _timeText = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
-    if (dom.pickupTime.value === 'shortest') _timeText = '最短（準備でき次第）';
-    let pickupTime = _dateLabel ? `${_dateLabel} ${_timeText}` : _timeText;
+    let pickupTime = dom.pickupTime.options[dom.pickupTime.selectedIndex].text;
+    if (dom.pickupTime.value === 'shortest') pickupTime = '最短（準備でき次第）';
     
     const totalPrice = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
     const notesElement = document.getElementById('order-notes');
     const notesValue = notesElement ? notesElement.value.trim() : '';
+
+    // ★追加: 「翌日以降」を選択したのに備考が空なら、希望日時の記入を促して送信を止める
+    if (dom.pickupTime.value === 'nextday' && !notesValue) {
+        showCustomAlert('ご記入のお願い', '「翌日以降」を選択された場合は、\n備考欄に希望日時をご記入ください。', () => {
+            if (notesElement) notesElement.focus();
+        });
+        dom.submitOrderButton.disabled = false;
+        dom.submitOrderButton.textContent = originalText;
+        return;
+    }
 
     const orderData = {
         userId: userProfile ? userProfile.userId : 'GUEST',
@@ -861,7 +810,7 @@ function createReceiptFlexMessage(orderData) {
         { "type": "box", "layout": "vertical", "margin": "md", "contents": [
              { "type": "text", "text": "受取情報", "size": "xs", "color": "#aaaaaa" },
              { "type": "text", "text": `受取人: ${safeRecipient} 様`, "size": "sm", "margin": "sm" },
-             { "type": "text", "text": `日時: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
+             { "type": "text", "text": `時間: ${safeTime}`, "size": "sm", "margin": "sm", "weight": "bold", "color": "#E64A19" }
         ]},
         { "type": "separator", "margin": "lg" },
         { "type": "box", "layout": "horizontal", "contents": [
